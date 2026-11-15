@@ -50,9 +50,10 @@ def test_port_reproduces_the_original_notebooks_saved_figure():
 
 
 @pytest.mark.skipif(not HAVE, reason="Lazar 2022 data not fetched; see demo_lazar.py")
-def test_swenose_olsen_stage_reaches_the_recorded_dm4_magnitude():
-    """sw-enose's stage 4, given the Lazar OSN rates in Hz and nothing fitted, peaks near 140 Hz on
-    recording 2 (recorded 148 Hz); the published example circuit peaks near 65 Hz."""
+def test_swenose_olsen_stage_reaches_the_recorded_dm4_peaks():
+    """sw-enose's stage 4, given the Lazar OSN rates in Hz and nothing fitted, PEAKS near 140 Hz on
+    recording 2 (recorded 148 Hz); the published example circuit peaks near 65 Hz. Peaks only:
+    between peaks Olsen fires about 2.3x the recorded level (see demo_lazar_sweep.py)."""
     from sw_enose.bio import BiomimeticNose
     from sw_enose.data import synthetic_params
     rows = list(csv.reader(open(REPO / "estimated_affinity.csv")))

@@ -294,12 +294,33 @@ Or59b recordings in shape (r 0.88–0.95), but its projection-neuron stage does 
 (r 0.40–0.61; it peaks near 65 Hz against 150–190 Hz recorded). The data file also stores one PN
 recording three times.
 
-**sw-enose's own stage 4 does better against the recordings than the published circuit.** The
-Olsen 2010 equation was fitted on fly ORN→PN data pooled over 24 receptor types, and this circuit
-has exactly 24, so it can take the OSN rates in Hz with nothing invented or fitted. It peaks at
-about 140 Hz against 148–191 Hz recorded (the published circuit reaches about 65 Hz) and
-correlates at mean r 0.57 against 0.47. That is one glomerulus and one odorant. Adaptation
-fitted on one recording improves the four held-out ones only modestly (r +0.01 to +0.09).
+**Neither sw-enose's stage 4 nor the Lazar circuit reproduces the DM4 recordings, and they fail in
+opposite ways** (revised 16 Nov 2026). The Olsen 2010 equation was fitted on fly ORN→PN data pooled
+over 24 receptor types, and this circuit has exactly 24, so it takes the OSN rates in Hz with
+nothing invented or fitted.
+
+| DM4, 5 unique recordings | recorded | Olsen (sw-enose stage 4) | Lazar circuit, published |
+|---|---|---|---|
+| peak, Hz | 148–191 | 139–146 | 57–69 |
+| mean firing, Hz | 45.5 | 107.4 | about the recorded level |
+| firing with no odour, Hz | 6.9 | 29.2 | — |
+| correlation r (mean) | — | 0.57 | 0.47 |
+| RMSE, Hz | — | 69.9 | 25.9 |
+
+Olsen gets the peaks and timing roughly right but holds about 2.3× the recorded level for as long
+as the odour lasts; the Lazar circuit gets the average level but never reaches the peaks. Both
+miss the same thing: the **transient** burst at each concentration step that then subsides, which
+a steady-state equation cannot produce. *An earlier version of this paragraph, judging on peaks
+and correlation alone, said sw-enose's stage 4 "does better" and "reproduces the firing
+magnitude". It does not.* Adaptation fitted on one recording improves correlation on the four
+held-out ones only modestly (r +0.01 to +0.09).
+
+**Fitting the Lazar circuit does not help** (`demo_lazar_sweep.py`). The PN's three input gains and
+the pre-synaptic feedback strength were each swept from 0.25× to 4× their published values, 625
+configurations. With the best configuration chosen on four recordings and scored on the fifth, the
+held-out error is 27.1 Hz against 25.9 for the published configuration, r 0.47 for both, and no
+configuration's peak gets above about 90 Hz. Within this range the output barely responds to these
+parameters.
 
 ## Human detection thresholds (15 Nov 2026)
 

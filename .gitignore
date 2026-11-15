@@ -6,3 +6,4 @@ __pycache__/
 data/olsen2010/*.xml
 lean/
 data/lazar2022/repo/
+data/lazar2022/dm4_sweep.npz

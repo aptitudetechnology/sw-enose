@@ -113,8 +113,12 @@ print("""What this shows.
    plot precision, so this is the example circuit as published, not a porting error. The paper
    explores many circuit configurations; this notebook is one of them.
  - sw-enose's stage 4, the Olsen 2010 equation with its published fly constants and nothing fitted,
-   reproduces the DM4 firing magnitude (about 140 Hz against 148-191 Hz recorded, where the
-   published circuit reaches about 65 Hz) and tracks the time course somewhat better (mean r
-   0.57 against 0.47). The Olsen constants came from other glomeruli and odours, so this is an
-   independent check, but on one glomerulus and one odorant.
+   gets the PEAKS into the recorded range (about 140 Hz against 148-191 Hz, where the published
+   circuit reaches about 65 Hz) and tracks timing somewhat better (mean r 0.57 against 0.47).
+   But it fires far too much between peaks: mean 107 Hz against 45 Hz recorded, and 29 Hz
+   against 7 Hz with no odour, so its overall error is much WORSE (RMSE about 70 Hz against 26
+   for the published circuit; demo_lazar_sweep.py). Recorded DM4 responses are transient bursts
+   on a modest sustained level; a steady-state equation cannot produce that. An earlier version
+   of this text, judging on peaks alone, said stage 4 "reproduces the DM4 firing magnitude". It
+   does not.
  - Adaptation fitted on one recording helps the four held-out ones only modestly.""")

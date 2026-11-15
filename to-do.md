@@ -144,8 +144,10 @@ comparison.
 - [x] **Kenyon cells made to differ: graded lognormal weights adopted as default** (`demo_stage5.py`).
   Beat binary on all three panels under a rule fixed in advance (0.772→0.923, 0.758→0.889,
   0.908→0.993); gap to ceiling now ~0.02 at every noise level and fan-in.
-- [x] **Stage 4: keep Olsen.** It ties Raman on the static task, and against the recorded DM4 neurons
-  it reproduced the firing magnitude with nothing fitted (`demo_lazar.py`).
+- [x] **Stage 4: keep Olsen** for now. It ties Raman on the static task. Against the recorded DM4
+  neurons it gets peaks and timing roughly right but fires about 2.3× too much between peaks
+  (corrected 16 Nov: an earlier note said it "reproduced the firing magnitude"; that was judged on
+  peaks alone). Neither Olsen nor Raman can produce transients.
 
 **Work:**
 
@@ -177,9 +179,17 @@ comparison.
     the published example configuration, not to the port.
 - [x] **Ran sw-enose's stages 3 and 4 against the DM4 recordings** (in `demo_lazar.py`). Stage 4
   (Olsen, fly constants, nothing fitted) peaks at about 140 Hz against 148–191 Hz recorded, where
-  Lazar's circuit reaches about 65 Hz, and has mean r 0.57 against 0.47. Adaptation fitted on one
+  Lazar's circuit reaches about 65 Hz, and has mean r 0.57 against 0.47. **Corrected 16 Nov:** its
+  mean firing is 107 Hz against 45 recorded, so its RMSE (about 70 Hz) is far worse than Lazar's
+  (26). It matches peaks, not magnitude. Adaptation fitted on one
   recording improved the four held-out recordings by r +0.01 to +0.09. Both fitted time constants
   sat on the grid edges (3 s and 0.1 s), so a wider grid is worth trying.
+- [x] **Swept the Lazar circuit** (`demo_lazar_sweep.py`): PN input gains and pre-LN feedback, 0.25×–4×,
+  625 configurations, leave-one-recording-out. Fitted held-out RMSE 27.1 vs 25.9 published; no
+  configuration peaks above ~90 Hz. These four parameters cannot produce the DM4 transients.
+- [ ] Find what CAN produce the DM4 transients. Candidates: the Lazar circuit's synaptic kinetics
+  (Post-LN `a`/`b` rates), sw-enose's adaptation scored on RMSE rather than r, or a transient
+  (contrast) term ahead of Olsen. Judge on held-out recordings and on RMSE, not peaks alone.
 - [ ] Ask the Lazar group which circuit configuration in the paper reproduces the DM4 peaks.
 - [ ] Email the Lazar 2024 and Scott 2014 corresponding authors asking for code.
 - [ ] Give Muezzinoglu's antennal lobe a fair test: it needs time-varying input (sensor-like
