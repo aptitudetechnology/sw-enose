@@ -20,10 +20,19 @@ for name, mix in profiles.items():
     print(f"{name}: " + "; ".join(f"{o} tested on {v['receptors_tested']}/{v['of']} receptors, agonist for {v['agonist_for']}"
                                   for o, v in coverage(p, mix).items()))
 
+from sw_enose.coverage import comparable_odorants, describe
+print("\nWhat these comparisons rest on:")
+print(" ", describe(p))
+print("  odorant pairs with 2+ receptors tested against both:",
+      ", ".join(f"{a}/{b} ({n})" for a, b, n in comparable_odorants(p, 2)) or "none")
+print("  So the recognition scores below are mostly NOT a measured difference between these")
+print("  odorants: they are the difference between which receptors each odorant happened to be")
+print("  screened against. See demo_uncertainty.py section 3.")
+
 mem = SparseMemory()
 for name, mix in profiles.items():
     mem.learn(name, [nose.sniff(concentration_vector(p, mix), adapt=False) for _ in range(10)])
-print("\nRecognition, 20 trials each (a check of the machinery):")
+print("\nRecognition, 20 trials each (a check of the machinery, NOT of the chemistry):")
 for name, mix in profiles.items():
     hits = sum(mem.recognise(nose.sniff(concentration_vector(p, mix), adapt=False))[0] == name for _ in range(20))
     print(f"  {name:26s} {hits}/20")

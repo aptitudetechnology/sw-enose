@@ -11,7 +11,8 @@ and say for each stage how well the biology behind it is established.
 | Part | Biomimetic? | Status |
 |---|---|---|
 | Processing stages (binding, convergence, adaptation, normalisation, sparse code) | Yes, modelled on animal olfaction | Built, tested on synthetic data. Stages 1 and 4 verified in cells or flies; stages 2 and 3 use invented numbers; stage 5 from a modelling paper. See `sources/AUDIT_*.md` |
-| Receptors themselves | **Partly**: real human EC50s from M2OR (`sw_enose/m2or.py`, `demo_m2or.py`) | 626 measured agonist pairs across 128 reference receptors. Efficacy assumed; untested pairs (most of them) treated as no response |
+| Receptors themselves | **Partly**: real human EC50s from M2OR (`sw_enose/m2or.py`, `demo_m2or.py`) | 626 measured agonist pairs across 128 reference receptors. Efficacy assumed, and `demo_uncertainty.py` shows that assumption **changes the answer** near threshold; untested pairs (most of them) treated as no response |
+| How much the answers depend on what we don't know | — | Measured (`sw_enose/uncertainty.py`, `sw_enose/coverage.py`, `demo_uncertainty.py`). Adaptation constants don't matter; convergence ratio and efficacy do |
 | Air-to-mucus conversion (ppb in air to uM at the receptor) | Partly | Built and tested (`sw_enose/air.py`, `demo_air.py`). Gas-law and Henry's-law steps are arithmetic; constants for the six demo odorants are **real** (Sander v5.0.0, `data/henry/`), two of the six only as estimates. Equilibrium, mucus composition, uptake and kinetics are all still unmodelled |
 | Comparison with any real nose or sensor | No | Not started |
 
@@ -42,6 +43,10 @@ real breath, water or health.** No output of this code is evidence about a perso
 - `sw_enose/air.py`: air-to-mucus conversion. ppb in air to uM at the receptor, via the gas law and
   Henry's law, with `AIR_TO_MUCUS` naming everything it leaves out. Invents no constant: it refuses
   any odorant it has no value for. `data/henry/` holds real values for the six demo odorants.
+- `sw_enose/coverage.py`: which receptor-odorant pairs were actually tested. `support`, `describe`
+  and `restrict_to_tested` so a result can state what measurement it rests on.
+- `sw_enose/uncertainty.py`: does a conclusion survive what we don't know? Efficacy redrawing from
+  the measured spread, stage-parameter sweeps, and a seed-to-seed noise floor to judge them against.
 - `sw_enose/pipeline.py`: a plain (non-biomimetic) baseline pipeline, kept for comparison.
 - `sw_enose/data.py`: parameter loading with mandatory provenance.
 - `demo.py`: a worked example on synthetic odorants.
@@ -108,12 +113,44 @@ may be an artefact of the constant rather than a fact about olfaction. Dimethyl 
 measured, which makes it the one genuine discrepancy worth chasing — through odorant-binding
 proteins, accumulation away from equilibrium, or amplification after binding.
 
+## How much the answers depend on what we don't know (15 Nov 2026)
+
+`demo_uncertainty.py` changes each unknown and asks whether the answer moves by more than reseeding
+the same model moves it. Anything smaller than that is not an effect. Measured on a hard task — a
+0.07 µM sulfur trace under strong sour, baseline recognition 0.79, chance 0.50 — because the easy
+four-smell task sits at 1.00 and so cannot show an effect in either direction.
+
+**Efficacy matters, and the data we already hold contradicts the assumption.** Our fits of Singh et
+al.'s raw curves give relative efficacy among agonists at the same receptor of 0.03–1.0, median 0.43:
+a typical agonist acts at under half the strength of the best agonist at its receptor, not the 1.0
+`m2or.py` assumes. Redrawing from that measured spread, recognition ranges 0.49–1.00 — sometimes
+chance. Even when discrimination holds, only 0.35–0.68 of the sparse code's active cells survive,
+against 0.013 overlap between genuinely different smells. So the nose can report **that** two smells
+differ, but not **which** code belongs to which smell, and near threshold not even that.
+
+**Coverage is worse than the headline figure suggests.** Of 23 receptors with a measured agonist
+among the six demo odorants, **none** was tested against all six, and only two odorant pairs have two
+or more receptors tested against both. The recognition scores in `demo_mixture.py` are therefore
+mostly not a measured difference between odorants but a difference in which receptors each odorant
+was screened against. `demo_mixture.py` now prints that caveat beside its own results.
+
+**Of the invented stage parameters, one matters and one is untestable here.** Recognition trends with
+the convergence ratio across the whole sweep (0.58 at 1 neuron to 0.86 at 500, rank correlation
++0.94, against 0.11 from reseeding), because stage 2 acts only by averaging neuron noise away — so
+that invented number is load-bearing near threshold. The adaptation constants `adapt_tau` and
+`adapt_strength` move it less than reseeding does and can stay invented. `recover_tau` gets **no
+verdict**: recovery only acts once an odour is removed and the task never removes one, so its flat
+result is an absence of evidence, not evidence of absence.
+
 ## Not done yet
 
-A measured Henry constant for octanethiol and carvone (both currently estimates), temperature
-coefficients for four of the six compounds, nasal uptake and deposition, comparison against measured
-human detection thresholds in air, sequence-to-receptor steps from genome data (the hard, unsolved
-step), and any comparison with real sensor or gas-chromatography recordings.
+Per-pair efficacy bounds carried through the stages (the spread is measured, but the model still
+takes a single efficacy per pair), a presentation with a blank period so adaptation recovery can be
+tested at all, a measured convergence ratio now that it is known to matter, a measured Henry constant
+for octanethiol and carvone (both currently estimates), temperature coefficients for four of the six
+compounds, nasal uptake and deposition, comparison against measured human detection thresholds in
+air, sequence-to-receptor steps from genome data (the hard, unsolved step), and any comparison with
+real sensor or gas-chromatography recordings.
 
 Run: `python3 demo.py`, `python3 demo_bio.py`, `python3 demo_m2or.py`, `python3 demo_mixture.py`,
-`python3 demo_air.py` and `python3 -m pytest -q`.
+`python3 demo_air.py`, `python3 demo_uncertainty.py` and `python3 -m pytest -q`.
