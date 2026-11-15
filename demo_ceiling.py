@@ -66,26 +66,28 @@ print(" ", describe_gap(a))
 print("\n" + "=" * 76)
 print("3. WHAT THIS MEASUREMENT FOUND")
 print("=" * 76)
-old = stage_accuracies(t, noise=0.1, vary_conc=True, fan_in=6)
-print(f"  Before the fix, fan_in=6 absolute:  {old['sparse_memory']:.3f}  (gap {old['gap']:+.3f})")
-print(f"  After, Dasgupta's ratio scaled:     {a['sparse_memory']:.3f}  (gap {a['gap']:+.3f})")
+hist = [("binary weights, absolute fan_in=6 (original)", dict(fan_in=6, kc_weights="binary")),
+        ("binary weights, fan_in scaled to Dasgupta's ratio", dict(kc_weights="binary")),
+        ("graded lognormal weights (current default)", {})]
+for label, kw in hist:
+    h = stage_accuracies(t, noise=0.1, vary_conc=True, **kw)
+    print(f"  {label:50s} {h['sparse_memory']:.3f}  (gap {h['gap']:+.3f})")
 print(f"""
   Dasgupta et al. model each expansion cell as sampling about 6 of ~50 projection neurons: a
   ratio of {DASGUPTA_FAN_IN_RATIO:.0%}, not an absolute 6. Carried across as a literal 6, on an array of
-  {len(t.odorants)} glomeruli every cell reads {6 / len(t.odorants):.0%} of the input, so all 2,000 cells see nearly the
-  same thing and none can be odorant-selective. Scaling the ratio instead gives
-  fan_in={default_fan_in(len(t.odorants))} here, and recovers almost everything that was being thrown away.
+  {len(t.odorants)} glomeruli every binary cell reads {6 / len(t.odorants):.0%} of the input, so the 2,000 cells see nearly
+  the same thing. Scaling the ratio (fan_in={default_fan_in(len(t.odorants))}) recovered most of it -- but with binary
+  weights even that leaves only 28 distinct cells. Graded weights make every cell distinct and
+  close the remaining gap, at any fan-in (demo_stage5.py).
 
   This was invisible to every other check in the repo. The stage looked right, its numbers were
   cited, its tests passed, and recognition on the easy four-smell panel was a perfect 1.00. Only
   asking "how does this compare with the best possible readout of the same input" exposed it.""")
 
 print("""
-  What remains is the honest cost of the stage: binarising to a sparse code loses a little, and
-  loses more as noise rises (+0.06 at noise 0.05, +0.19 at 0.40), because top-k selection is
-  brittle where a real-valued readout degrades gracefully. That residue is the price of the
-  biomimetic representation, and it is now small enough that further architecture work has little
-  left to give at these noise levels.
+  What remains is small: with graded weights the gap is a few hundredths at every noise level in
+  the table above. On this panel the pipeline now uses nearly all the separability its receptors
+  provide, so the receptor data -- not the architecture -- is what limits it.
 
   Caveat on the word ceiling: it is the best of the readouts tried, so it is a LOWER BOUND. A
   cleverer classifier might beat it, which would mean the real gap is larger, never smaller.""")

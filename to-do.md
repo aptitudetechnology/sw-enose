@@ -141,18 +141,21 @@ comparison.
   beats 5% on the acids. 20% won the acids (0.841 vs 0.772) but lost held-out A (0.661 vs 0.758);
   50% won both held-out panels but lost the acids (0.744). Nothing qualified. The curves are jumpy
   because 8 glomeruli at fan-in 2 give only 28 distinct wirings, so cells come in duplicate groups.
-- [ ] Make Kenyon cells actually differ on small arrays: graded (e.g. Gaussian or random-strength)
-  weights instead of binary ones, or Muezzinoglu-style Bernoulli fan-in. Test on the held-out panels.
-- [ ] **Stage 4.** Keep Olsen (literature-grounded, fly constants) or note that Raman's simpler
-  form performs the same? This is documentation only unless something else changes.
+- [x] **Kenyon cells made to differ: graded lognormal weights adopted as default** (`demo_stage5.py`).
+  Beat binary on all three panels under a rule fixed in advance (0.772→0.923, 0.758→0.889,
+  0.908→0.993); gap to ceiling now ~0.02 at every noise level and fan-in.
+- [x] **Stage 4: keep Olsen.** It ties Raman on the static task, and against the recorded DM4 neurons
+  it reproduced the firing magnitude with nothing fitted (`demo_lazar.py`).
 
 **Work:**
 
 - [x] (done in 8312e92) Package the comparison: `demo_reference.py` reproducing both tables above, tests for
   `reference_models.py` (at minimum that Raman Eq. 6 reduces to L1 normalisation and that the Kenyon
   layer keeps exactly the top fraction), then commit.
-- [ ] Separate the remaining Kenyon-layer effect: sweep connection probability (fan-in distribution)
-  and readout rule (SparseMemory vs Hebbian counts) independently at 5% active.
+- [x] **Kenyon-layer effect separated** (`demo_stage5.py` part 2): readout rule makes no difference;
+  Muezzinoglu's gain came from Bernoulli wiring plus cell count (more distinct cells).
+- [ ] Rerun `demo_uncertainty.py` with many more seeds (10+). Its sulfur-trace task swings 0.5-1.0
+  with the seed alone, so its 3-seed noise floor was understated and its verdicts are provisional.
 - [x] **Done (uncommitted): ported the Lazar antennal-lobe circuit to numpy.** Files:
   `sw_enose/lazar_al.py` (port, with the BSD-3 notice), `demo_lazar.py`, `tests/test_lazar_al.py`.
   The data is cloned to `data/lazar2022/repo/` and gitignored.

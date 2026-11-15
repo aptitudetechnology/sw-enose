@@ -13,7 +13,7 @@ and say for each stage how well the biology behind it is established.
 | Processing stages (binding, convergence, adaptation, normalisation, sparse code) | Yes, modelled on animal olfaction | Built, tested on synthetic data. Stages 1 and 4 verified in cells or flies; stages 2 and 3 use invented numbers; stage 5 from a modelling paper. See `sources/AUDIT_*.md` |
 | Receptors themselves | **Partly**: real human EC50s from M2OR (`sw_enose/m2or.py`, `demo_m2or.py`) | 626 measured agonist pairs across 128 reference receptors. Efficacy assumed, and `demo_uncertainty.py` shows that assumption **changes the answer** near threshold; untested pairs (most of them) treated as no response |
 | How much the answers depend on what we don't know | — | Measured (`sw_enose/uncertainty.py`, `sw_enose/coverage.py`, `demo_uncertainty.py`). Efficacy, convergence and both adaptation constants all matter |
-| Is the pipeline using the information the receptors give it? | — | Measured (`sw_enose/separability.py`, `demo_ceiling.py`). It was discarding more than half of it; now within ~0.1 of an optimal readout |
+| Is the pipeline using the information the receptors give it? | — | Measured (`sw_enose/separability.py`, `demo_ceiling.py`, `demo_stage5.py`). It was discarding more than half of it; with graded expansion weights it is now within ~0.02 of an optimal readout |
 | Air-to-mucus conversion (ppb in air to uM at the receptor) | Partly | Built and tested (`sw_enose/air.py`, `demo_air.py`). Gas-law and Henry's-law steps are arithmetic; constants for the six demo odorants are **real** (Sander v5.0.0, `data/henry/`), two of the six only as estimates. Equilibrium, mucus composition, uptake and kinetics are all still unmodelled |
 | Comparison with any real nose or sensor | No | Not started |
 
@@ -204,6 +204,11 @@ adaptation should earn its keep, is not built. `recover_tau` still gets **no ver
 recovery acts only once an odour is removed and the task never removes one, so its flat result is an
 absence of evidence, not evidence of absence.
 
+*Update, after graded weights were adopted (see "Stage 5 fixed" below): rerun with the new
+default and the same 3 seeds, the hard-task baseline is 0.62 and all three stage parameters come
+out "does not matter" against a reseeding floor of 0.34. A 7-seed check shows the floor is that
+large under binary weights too. The verdicts in this section are provisional.*
+
 **Correction to the previous commit**, which reported that the adaptation constants move the answer
 less than reseeding does and could stay invented. That was an artefact of the sparse-coding bug
 described below: the broken code was lossy enough to raise the reseeding floor to 0.11 and bury the
@@ -250,9 +255,8 @@ here and reproducing Dasgupta's own 6 at his own array size of 50.
 | absolute `fan_in=6` | 0.458 | +0.539 |
 | ratio-scaled (now default) | 0.903 | +0.095 |
 
-What remains is the honest cost of binarising to a sparse code, and it grows with noise (+0.06 at
-noise 0.05, +0.19 at 0.40) because top-k selection is brittle where a real-valued readout degrades
-gracefully. Small enough that further architecture work has little left to give at these noise
+What remained with binary weights grew with noise (+0.06 at noise 0.05, +0.19 at 0.40). **Graded
+expansion weights, adopted later, closed it to about +0.02 at every noise level** (`demo_stage5.py`). Small enough that further architecture work has little left to give at these noise
 levels; what limits the nose beyond that is unmeasured, not shown to be the receptor data.
 
 This was invisible to every other check here: the stage's numbers were cited, its tests passed, and
@@ -310,6 +314,36 @@ plus a secondary compilation. Nothing measured was found for C7, C9 or C10.
   need (log P, pKa, nasal mucus pH) was stopped by an automated safeguard; they still need sourcing.
 
 Verdict: underpowered and inconclusive. See `to-do.md`.
+
+## Stage 5 fixed: graded expansion weights (15 Nov 2026)
+
+`demo_stage5.py`. With binary weights and fan-in 2, 8 glomeruli allow only 28 distinct expansion
+cells, so 2,000 cells were duplicates of 28. Giving each connection a random strength makes every
+cell distinct. Four candidates were judged against a rule fixed before running: replace the default
+only if a candidate beats it on every panel, the acids and two held-out panels.
+
+| mean accuracy over noise 0.1/0.4/0.8 | acids | held-out A | held-out B |
+|---|---|---|---|
+| binary weights (old default) | 0.772 | 0.758 | 0.908 |
+| graded lognormal weights (**new default**) | 0.923 | 0.889 | 0.993 |
+| ceiling | 0.942 | 0.896 | 0.997 |
+
+Uniform weights did as well (the rule picked lognormal by 0.008, within noise), so the finding is
+"graded weights", not the distribution. The gap to the ceiling on the acids is now about 0.02 at
+every noise level and every fan-in tested: graded weights also defuse the absolute-fan-in trap.
+Against Muezzinoglu et al.'s Kenyon layer the pipeline now scores 0.98 / 0.95 / 0.83 against
+their 0.97 / 0.94 / 0.83.
+
+Attribution (part 2 of the demo): the readout rule does not matter (Hebbian counts and sw-enose's
+memory agree within about 0.01). Muezzinoglu's advantage came from Bernoulli wiring and more cells,
+which give more distinct cells; graded weights alone do better than either.
+
+**Caveat found on the way.** On the separate sulfur-trace task in `demo_uncertainty.py`, results
+swing from about 0.5 to 1.0 with the random seed alone, under every weighting (7 seeds: binary
+0.74, uniform 0.72, lognormal 0.71 at the faintest trace; no real difference). That demo judged
+its sensitivity verdicts against a noise floor from only 3 seeds, which understated this, and its
+stage-parameter verdicts flip between weightings. Treat the uncertainty section above as
+provisional until it is rerun with many more seeds.
 
 ## Not done yet
 

@@ -53,6 +53,9 @@ def l2(X):
 
 
 def swenose_full(noise, Gtr, ytr, Gte, yte, **kw):
+    """The pipeline as it was when this comparison was made: BINARY expansion weights, unless the
+    caller passes kc_weights. Graded weights became the default afterwards (demo_stage5.py)."""
+    kw.setdefault("kc_weights", "binary")
     nose = BiomimeticNose(t, neuron_noise=noise, seed=1, **kw)
     mem = SparseMemory()
     for k in range(NO):
@@ -92,7 +95,9 @@ for noise in NOISES:
         "Raman 2006 shunting, c = 1": acc(raman_shunting(Gtr, cg), ytr, raman_shunting(Gte, cg), yte),
         "Raman 2006 shunting, c ~ U(0,1)": acc(raman_shunting(Gtr, cu), ytr,
                                                raman_shunting(Gte, cu), yte),
-        "sw-enose full pipeline (sparse code + memory)": swenose_full(noise, Gtr, ytr, Gte, yte),
+        "sw-enose full pipeline, binary weights (as compared)": swenose_full(noise, Gtr, ytr, Gte, yte),
+        "sw-enose full pipeline, graded weights (current default)": swenose_full(
+            noise, Gtr, ytr, Gte, yte, kc_weights="lognormal"),
         f"Muezzinoglu AL + nearest centroid": acc(Str, ytr, Ste, yte),
         "Muezzinoglu AL + Kenyon layer (Hebbian)": float(np.mean(
             MuezzinogluMB(al.n_e, NO, seed=4).train(Str, ytr).predict(Ste) == yte)),
@@ -136,4 +141,6 @@ Reading it:
  - sw-enose's stage 5 is the main loss. Cell count barely matters; raising the active fraction
    from 5% to 20% recovers most of it. With 8 glomeruli and fan-in 2 there are only 28 distinct
    wirings, so a 5% code is mostly ties and duplicate cells.
- - These were tuned and scored on the same task: not held out.""")
+ - These were tuned and scored on the same task: not held out. The held-out follow-up
+   (demo_heldout.py) found the active fraction does not generalise; graded weights
+   (demo_stage5.py) do, and are now the default -- see the "graded weights" row above.""")

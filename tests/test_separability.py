@@ -43,7 +43,7 @@ def test_nose_uses_the_scaled_rule_by_default_and_honours_an_explicit_value():
     p = synthetic_params(n_receptors=8, odorants=("A", "B", "C"))
     assert BiomimeticNose(p).fan_in == default_fan_in(8)
     assert BiomimeticNose(p, fan_in=6).fan_in == 6
-    assert BiomimeticNose(p, fan_in=6).W.sum(axis=1).max() == 6
+    assert (BiomimeticNose(p, fan_in=6).W > 0).sum(axis=1).max() == 6
 
 
 # --- separability: where the bound is ---
@@ -97,8 +97,12 @@ def test_the_scaled_fan_in_closes_most_of_the_gap():
     """The regression this module exists to prevent: an absolute fan_in of 6 on a small array
     throws away more than half the separability the receptors provided."""
     t = acids()
-    bad = stage_accuracies(t, noise=0.1, vary_conc=True, fan_in=6, n_train=30, n_test=60)
-    good = stage_accuracies(t, noise=0.1, vary_conc=True, n_train=30, n_test=60)
+    # pinned to BINARY weights: that is where the fan-in trap bites (graded weights, now the
+    # default, largely remove it -- see test_graded_weights_make_fan_in_much_less_critical)
+    bad = stage_accuracies(t, noise=0.1, vary_conc=True, fan_in=6, n_train=30, n_test=60,
+                           kc_weights="binary")
+    good = stage_accuracies(t, noise=0.1, vary_conc=True, n_train=30, n_test=60,
+                            kc_weights="binary")
     assert bad["gap"] > 0.35, "expected the old default to lose a lot"
     assert good["gap"] < 0.20, "expected the scaled rule to recover most of it"
     assert good["sparse_memory"] > bad["sparse_memory"] + 0.3
@@ -162,3 +166,21 @@ def test_c9_and_c10_are_separable_at_operating_noise():
     from sw_enose.separability import pair_accuracy
     t = acids()
     assert pair_accuracy(t, "nonanoic acid", "decanoic acid", noise=0.1, n_train=30, n_test=80) >= 0.95
+
+
+@pytest.mark.skipif(not M2OR.exists(), reason="M2OR snapshot not fetched")
+def test_graded_weights_make_fan_in_much_less_critical():
+    """With graded (lognormal) weights every cell is distinct even at fan-in 6 on 8 glomeruli, so
+    the absolute-fan-in trap that cost half the separability with binary weights mostly goes away."""
+    t = acids()
+    six = stage_accuracies(t, noise=0.1, vary_conc=True, fan_in=6, n_train=30, n_test=60)
+    assert six["gap"] < 0.15
+
+
+def test_graded_weights_make_every_cell_distinct():
+    p = synthetic_params(n_receptors=8, odorants=("A",))
+    binary = BiomimeticNose(p, kc_weights="binary").W
+    graded = BiomimeticNose(p).W
+    assert len({tuple(r) for r in binary}) == 28           # C(8, 2): most cells are duplicates
+    assert len({tuple(r) for r in graded}) == graded.shape[0]
+    assert np.array_equal(binary > 0, graded > 0), "graded weights keep the same wiring"

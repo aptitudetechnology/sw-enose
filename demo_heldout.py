@@ -4,6 +4,9 @@ demo_reference.py found that raising the Kenyon-layer active fraction from 5% to
 of sw-enose's stage-5 loss on the acid panel -- but that was tuned and scored on one task. Here
 the same sweep runs on two held-out M2OR panels sharing no odorant with the acids.
 
+This analyses the BINARY-weight expansion that was the default at the time, and is pinned to it
+(kc_weights="binary"). Graded weights, adopted later (demo_stage5.py), make the question moot.
+
 Rule fixed BEFORE running: change the default only if one candidate has the best mean accuracy
 across noise levels on the held-out panels AND beats 5% on the acids. Result: none qualifies, so
 the default stays at 5%. MODELLED throughout.
@@ -34,7 +37,8 @@ for name, od in PANELS.items():
     ceil = [stage_accuracies(t, noise=n, n_train=40, n_test=80)["ceiling"] for n in NOISES]
     print(f"   {'ceiling':>8s}" + "".join(f"  {c:<11.3f}" for c in ceil) + f"  {np.mean(ceil):.3f}")
     for f in FRACS:
-        a = [stage_accuracies(t, noise=n, n_train=40, n_test=80, sparsity=f)["sparse_memory"]
+        a = [stage_accuracies(t, noise=n, n_train=40, n_test=80, sparsity=f,
+                             kc_weights="binary")["sparse_memory"]
              for n in NOISES]
         print(f"   {f:>8.0%}" + "".join(f"  {x:<11.3f}" for x in a) + f"  {np.mean(a):.3f}")
 
@@ -43,5 +47,5 @@ Reading it: 20% wins on the acids but is clearly worse than 5% on held-out A; 50
 held-out panels but loses to 5% on the acids. No candidate passes the rule, so 5% stays.
 The jumpy curves show why tuning it is pointless here: with fan-in 2, 8 glomeruli allow only 28
 distinct wirings (4 allow 6), so the 2,000 cells are a few large groups of exact duplicates and
-top-k switches whole groups on or off. The fix is to make the cells differ (graded weights),
-not to tune the fraction.""")
+top-k switches whole groups on or off. The fix is to make the cells differ: graded weights,
+tested and adopted in demo_stage5.py.""")

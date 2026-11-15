@@ -56,7 +56,8 @@ class BiomimeticNose:
     def __init__(self, params: ReceptorParams, neurons_per_type=50, neuron_noise=0.1,
                  adapt_tau=8.0, adapt_strength=0.6, recover_tau=4.0,
                  norm_sigma=0.1, n_expansion=2000, fan_in=None, sparsity=0.05, seed=0,
-                 normalisation="olsen", max_orn_rate=250.0):
+                 normalisation="olsen", max_orn_rate=250.0, kc_weights="lognormal",
+                 kc_connectivity="fixed", kc_p=0.1):
         self.p = params
         self.rng = np.random.default_rng(seed)
         self.n_types = params.affinity.shape[0]
@@ -70,6 +71,27 @@ class BiomimeticNose:
         W = np.zeros((n_expansion, self.n_types))
         for i in range(n_expansion):
             W[i, self.rng.choice(self.n_types, size=min(self.fan_in, self.n_types), replace=False)] = 1.0
+        # Options for small arrays, where binary fixed fan-in makes most cells exact duplicates (8
+        # glomeruli at fan-in 2 allow only 28 distinct cells). Their draws come from a SEPARATE
+        # stream, so the default is bit-for-bit unchanged and an option alters only the wiring or
+        # weights, never the noise that follows.
+        #   kc_connectivity="bernoulli": each glomerulus-cell link exists independently with
+        #       probability kc_p (Muezzinoglu et al. 2008 used 0.1); fan-in then varies by cell.
+        #   kc_weights="uniform" / "lognormal": graded synaptic strengths, U(0,1) or
+        #       lognormal(0, 1), instead of 1. Real Kenyon-cell claws differ in strength, and
+        #       Litwin-Kumar et al. 2017 show the weight distribution matters; these exact
+        #       distributions are OURS.
+        if kc_connectivity not in ("fixed", "bernoulli") or kc_weights not in ("binary", "uniform", "lognormal"):
+            raise ValueError("kc_connectivity must be 'fixed' or 'bernoulli'; "
+                             "kc_weights 'binary', 'uniform' or 'lognormal'")
+        alt = np.random.default_rng([seed, 1])
+        if kc_connectivity == "bernoulli":
+            W = (alt.random((n_expansion, self.n_types)) < kc_p).astype(float)
+        if kc_weights == "uniform":
+            W = W * alt.uniform(0.0, 1.0, W.shape)
+        elif kc_weights == "lognormal":
+            W = W * alt.lognormal(0.0, 1.0, W.shape)
+        self.kc_weights, self.kc_connectivity, self.kc_p = kc_weights, kc_connectivity, kc_p
         self.W = W
         self.adapt_state = np.zeros(self.n_types)
 
