@@ -208,7 +208,11 @@ comparison.
   Cometto-Muñiz & Abraham 2010 tested only C4, C6 and C8 from the panel. C4 and C6 sit at nearly
   the same activation at threshold (0.08 log units apart, a weak pass on two points); with C8 the
   spread is about 1 log unit, and the secondary Nagata data scatters by about 1.9. Inconclusive.
-- [ ] Source the log P, pKa and human nasal mucus pH values needed for the mucus and ionisation
+- [x] **Ran research prompt 03 on Gemini** (`reports/Carboxylic-Acid-Olfactory-Model-Parameters.md`,
+  audited). It closed no gap with verified values. Ionisation shown not to matter for the spread
+  test (uniform pKa); Scott's mucus values make the spread worse (0.85 → 1.40). The threshold
+  benchmark is input-limited: it needs MEASURED air-mucus partition values for fatty acids.
+- [ ] (largely moot for the spread test; still needed for absolute levels) Source the log P, pKa and human nasal mucus pH values needed for the mucus and ionisation
   corrections. The automated search was stopped by a safeguard in this session; try a fresh
   session or another model, or gather them by hand. Then re-run `demo_thresholds.py`.
 - [ ] Find measured thresholds for C3, C5, C7, C9 and C10 (Wise et al. 2007, Chem Senses 32:475,

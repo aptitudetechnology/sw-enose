@@ -365,6 +365,19 @@ plus a secondary compilation. Nothing measured was found for C7, C9 or C10.
 
 Verdict: underpowered and inconclusive. See `to-do.md`.
 
+**Revisited 16 Nov 2026: the benchmark cannot give a verdict with the inputs that exist.**
+- *Ionisation does not matter for this test.* All eight acids have pKa within 4.80–4.90 in every
+  source found (unverified, but consistent), so ionisation scales them alike: it moves the spread
+  by at most ~0.1 log units at any mucus pH. It shifts only the overall level.
+- *The mucus correction matters a great deal.* Scott et al. 2014's corrected air/mucus values for
+  hexanoic and octanoic acid widen the spread from 0.85 to 1.40 log units and break the C4/C6
+  agreement (0.08 → 0.73). That run mixes sources, so it is not clean either.
+- So the earlier "weak pass" for C4 and C6 holds only under one partition treatment.
+  Reasonable treatments move the result by 0.5–1.2 log units, as much as the effect being tested.
+  Without measured air–mucus partition values for fatty acids, which two searches did not find,
+  this benchmark is limited by its inputs, not by the model. Audit:
+  `sources/AUDIT_Carboxylic-Acid-Olfactory-Model-Parameters.md`.
+
 ## Stage 5 fixed: graded expansion weights (15 Nov 2026)
 
 `demo_stage5.py`. With binary weights and fan-in 2, 8 glomeruli allow only 28 distinct expansion
