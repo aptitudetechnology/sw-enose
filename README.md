@@ -43,6 +43,8 @@ real breath, water or health.** No output of this code is evidence about a perso
 - `sw_enose/air.py`: air-to-mucus conversion. ppb in air to uM at the receptor, via the gas law and
   Henry's law, with `AIR_TO_MUCUS` naming everything it leaves out. Invents no constant: it refuses
   any odorant it has no value for. `data/henry/` holds real values for the six demo odorants.
+- `sw_enose/panels.py`: the odorant panels. `ACID_SERIES` (C3-C10 straight-chain fatty acids) is the
+  reference panel, chosen by coverage; `EVOCATIVE_PANEL` is the old one, kept so earlier demos run.
 - `sw_enose/coverage.py`: which receptor-odorant pairs were actually tested. `support`, `describe`
   and `restrict_to_tested` so a result can state what measurement it rests on.
 - `sw_enose/uncertainty.py`: does a conclusion survive what we don't know? Efficacy redrawing from
@@ -113,6 +115,44 @@ may be an artefact of the constant rather than a fact about olfaction. Dimethyl 
 measured, which makes it the one genuine discrepancy worth chasing — through odorant-binding
 proteins, accumulation away from equilibrium, or amplification after binding.
 
+## The reference panel: C3-C10 fatty acids (15 Nov 2026)
+
+The coverage result below forced a change of panel. The original six odorants were chosen to be
+evocative — sour, sulfur, spice, mint — and have **no** joint coverage: of 23 receptors with a
+measured agonist among them, none was tested against all six. Searching M2OR for the best-covered
+odorant set gives the straight-chain fatty acids C3-C10, where **64 of 64 pairs are measured** and
+8 receptors were tested against all eight acids. `demo_acids.py`; `sw_enose/panels.py`.
+
+```
+receptor     C3     C4     C5     C6     C7     C8     C9    C10     EC50 µM, - = tested, no response
+OR51E1      398     96    110    158    316      -    246      -
+OR51E2      341      -      -      -      -      -      -      -
+OR51I2        -    316     83    224      -      -      -      -
+OR51L1        -      -    363    117      -      -      -      -
+OR52B2        -      -      -      -     16    151     83     72
+OR52D1        -      -      -      -    260    316      -      -
+OR52L1        -      -    891      -      -      -      -      -
+OR56A5        -      -      -    427    282     79     36     32
+```
+
+The 40 measured non-responses are information, not gaps. The receptors are **chain-length tuned** —
+an OR51 group answers short acids, OR52B2 and OR56A5 long ones, and OR56A5 falls monotonically from
+C6 to C10 (427 → 32 µM). Those per-receptor tuning curves are measured shapes a model can be asked
+to reproduce, and `tests/test_panels.py` pins the OR56A5 curve so a change that breaks it fails.
+
+Why this panel and not another: chain length is a single ordered covariate driving receptor tuning,
+water solubility and human detection threshold at once. That turns the outstanding benchmark from
+"can it tell two smells apart" into "does it reproduce the order across eight compounds", which is
+much harder to pass by luck.
+
+**Two things stop it being an ordered prediction today.** C8-C10 have no measured Henry constant at
+all — octanoic's estimates span a factor of 73 and its chosen value does not continue the measured
+C3-C7 decline, which is why C8 wants thousands of ppb where its neighbours want hundreds. And only
+6 of the 8 acids have a published temperature coefficient, so `demo_acids.py` quotes the series at
+298.15 K, where every value is on the same footing, rather than letting the ordering become an
+artefact of which compound had a coefficient. Both gaps sit exactly where the long-chain receptors
+are tuned.
+
 ## How much the answers depend on what we don't know (15 Nov 2026)
 
 `demo_uncertainty.py` changes each unknown and asks whether the answer moves by more than reseeding
@@ -144,13 +184,14 @@ result is an absence of evidence, not evidence of absence.
 
 ## Not done yet
 
-Per-pair efficacy bounds carried through the stages (the spread is measured, but the model still
-takes a single efficacy per pair), a presentation with a blank period so adaptation recovery can be
-tested at all, a measured convergence ratio now that it is known to matter, a measured Henry constant
-for octanethiol and carvone (both currently estimates), temperature coefficients for four of the six
-compounds, nasal uptake and deposition, comparison against measured human detection thresholds in
-air, sequence-to-receptor steps from genome data (the hard, unsolved step), and any comparison with
-real sensor or gas-chromatography recordings.
+Published human detection thresholds in air for C3-C10, which is the next piece and the one the
+acid panel was chosen to enable. A measured Henry constant for C8, C9 and C10, plus temperature
+coefficients for C9 and C10. Per-pair efficacy bounds carried through the stages (the spread is
+measured, but the model still takes a single efficacy per pair). A presentation with a blank period
+so adaptation recovery can be tested at all. A measured convergence ratio, now that it is known to
+matter. Nasal uptake and deposition. Sequence-to-receptor steps from genome data (the hard, unsolved
+step), and any comparison with real sensor or gas-chromatography recordings.
 
 Run: `python3 demo.py`, `python3 demo_bio.py`, `python3 demo_m2or.py`, `python3 demo_mixture.py`,
-`python3 demo_air.py`, `python3 demo_uncertainty.py` and `python3 -m pytest -q`.
+`python3 demo_air.py`, `python3 demo_uncertainty.py`, `python3 demo_acids.py` and
+`python3 -m pytest -q`.

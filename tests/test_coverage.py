@@ -78,6 +78,26 @@ def test_comparable_odorants_respects_the_threshold_and_sorts_by_support():
     assert comparable_odorants(p, min_receptors=4) == []
 
 
+def test_restriction_narrows_odorant_columns_so_headers_match_values():
+    """Without this, column j of the result still means params.odorants[j], which silently
+    produces tables whose headers and numbers disagree."""
+    p = params([[1, 1, 1], [0, 1, 1]])
+    t = restrict_to_tested(p, ("B", "C"))
+    assert t.odorants == ("B", "C")
+    assert t.affinity.shape == (2, 2) and t.known.shape == (2, 2)
+    # the kept columns must be B and C, not A and B
+    p2 = ReceptorParams(np.array([[1.0, 2.0, 3.0]]), np.ones((1, 3)), 1.0, ("A", "B", "C"),
+                        "measured:ordered", np.ones((1, 3), bool), ("r0",))
+    assert list(restrict_to_tested(p2, ("B", "C")).affinity[0]) == [2.0, 3.0]
+    assert list(restrict_to_tested(p2, ("C", "A")).affinity[0]) == [3.0, 1.0]
+
+
+def test_narrowing_can_be_turned_off_but_then_keeps_every_column():
+    p = params([[1, 1, 1], [0, 1, 1]])
+    t = restrict_to_tested(p, ("B", "C"), narrow_odorants=False)
+    assert t.odorants == ("A", "B", "C") and t.affinity.shape[1] == 3
+
+
 def test_restriction_does_not_mutate_the_original():
     p = params([[1, 1, 1], [1, 0, 1]])
     before = p.affinity.shape

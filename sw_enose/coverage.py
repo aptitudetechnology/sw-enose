@@ -71,31 +71,40 @@ def describe(params: ReceptorParams, odorants=None) -> str:
             f"{len(s['odorants'])} odorants, {s['untested']} against none")
 
 
-def restrict_to_tested(params: ReceptorParams, odorants=None, how="all") -> ReceptorParams:
+def restrict_to_tested(params: ReceptorParams, odorants=None, how="all",
+                       narrow_odorants=True) -> ReceptorParams:
     """Drop receptors that were not tested against the odorants being compared.
 
     how="all": keep a receptor only if every listed odorant was tested on it. This is the honest
         array for comparing those odorants, and it is usually much smaller.
     how="any": keep a receptor tested against at least one of them.
 
+    narrow_odorants=True (the default) also drops the odorant COLUMNS not being compared, so that
+    column j of the result is `odorants[j]`. Pass False to keep every column, but then remember that
+    column indices still refer to `params.odorants`, not to `odorants` -- a reliable way to print a
+    table whose headers and values disagree.
+
     The returned parameters carry the restriction in their provenance, so a result made with them
     cannot be mistaken for one made on the full array.
     """
+    if how not in ("all", "any"):
+        raise ValueError("how must be 'all' or 'any'")
     known = _known(params)
     odorants = tuple(params.odorants) if odorants is None else tuple(odorants)
     cols = _indices(params, odorants)
     sub = known[:, cols]
     keep = np.all(sub, axis=1) if how == "all" else np.any(sub, axis=1)
-    if how not in ("all", "any"):
-        raise ValueError("how must be 'all' or 'any'")
     if not keep.any():
         raise NoCoverageInformation(
             f"no receptor was tested against {how} of {odorants}; refusing to return an empty array")
     rec = tuple(np.asarray(params.receptors, object)[keep]) if len(params.receptors) else ()
     note = (f"; RESTRICTED to the {int(keep.sum())} of {known.shape[0]} receptors tested against "
             f"{how} of {odorants}")
-    return replace(params, affinity=params.affinity[keep], efficacy=params.efficacy[keep],
-                   known=known[keep], receptors=rec, provenance=params.provenance + note)
+    take = (np.ix_(keep, cols) if narrow_odorants else (keep, slice(None)))
+    out_odorants = odorants if narrow_odorants else params.odorants
+    return replace(params, affinity=params.affinity[take], efficacy=params.efficacy[take],
+                   known=known[take], receptors=rec, odorants=out_odorants,
+                   provenance=params.provenance + note)
 
 
 def comparable_odorants(params: ReceptorParams, min_receptors=3) -> list:

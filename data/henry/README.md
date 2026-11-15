@@ -1,8 +1,9 @@
-# Henry's law constants: six odorants, transcribed 15 Nov 2026
+# Henry's law constants: 13 odorants, transcribed 15 Nov 2026
 
-`sander_v5_subset.csv` holds Henry's law solubility constants for the six odorants the demos use.
-Unlike everything else under `data/`, this file is **in the repo**: it is six hand-transcribed values
-with their attributions, not a bulk download.
+`sander_v5_subset.csv` holds Henry's law solubility constants for the odorants the demos use: the
+C3–C10 straight-chain fatty acid series (`panels.ACID_SERIES`, the reference panel) plus the five
+remaining members of the older evocative panel. Unlike everything else under `data/`, this file is
+**in the repo**: it is 13 hand-transcribed values with their attributions, not a bulk download.
 
 ## Source
 
@@ -46,12 +47,23 @@ The choice above is therefore ours, and is the main thing to challenge if a numb
 
 ## What is weak
 
+- **The measured values run out at C7.** Within the acid series, C3–C7 each have at least one type-M
+  row (C3 has six, C7 only one). **C8, C9 and C10 have none at all.** Octanoic's four
+  vapour-pressure/solubility rows span a factor of 73 — 0.15 to 11 — and their geometric mean, 1.17,
+  does not continue the smooth decline measured across C3–C6 (40.5 → 27.6 → 19.3 → 10.6). Dropping
+  the two Mackay rows, which agree with each other and with nothing else, gives 9.1, which does
+  continue it. The policy value is kept rather than cherry-picked, but **nothing should rest on
+  C8–C10**. This matters more than it looks: those are exactly the chain lengths the long-chain
+  receptors OR52B2 and OR56A5 are tuned to.
+- **Only C3–C8 have a temperature coefficient** within the series. C9 and C10 have none, so a
+  body-temperature comparison across the whole series is partly an artefact of which compound got
+  corrected. `demo_acids.py` quotes the series at 298.15 K for that reason.
 - **Octanethiol** and **L-carvone** have no measured value at all — only estimates, one of them built
   on a water solubility that was itself calculated from a boiling point. Any conclusion resting on
   these two rests on a model, not a measurement.
 - **Cinnamaldehyde** has no measured value either, and the source names no isomer.
 - **Carvone's** stereochemistry is unspecified in the source while the receptor data is for
   L-carvone. Enantiomers should partition alike, so this is a nominal rather than a real mismatch.
-- Only **butanoic acid** and **cinnamaldehyde** have a temperature coefficient. For the other four,
-  the body-temperature correction is silently skipped.
+- Outside the acid series, only **cinnamaldehyde** has a temperature coefficient; for dimethyl
+  trisulfide, carvone, isovaleric acid and octanethiol the body-temperature correction is skipped.
 - All of it is air-to-**water**. The receptor sits in mucus. See `AIR_TO_MUCUS` in `sw_enose/air.py`.
