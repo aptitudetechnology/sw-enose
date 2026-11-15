@@ -55,6 +55,9 @@ The choice above is therefore ours, and is the main thing to challenge if a numb
   continue it. The policy value is kept rather than cherry-picked, but **nothing should rest on
   C8–C10**. This matters more than it looks: those are exactly the chain lengths the long-chain
   receptors OR52B2 and OR56A5 are tuned to.
+- **Heptanoic's temperature coefficient is out of line.** C5 and C6 use the measured rows, 6750 and
+  6100 K; C7 has no measured coefficient and takes Abraham's (1984) type-V 8500 K, a visible jump in
+  an otherwise smooth series. Treat C7's body-temperature value as less reliable than its 298.15 K one.
 - **Only C3–C8 have a temperature coefficient** within the series. C9 and C10 have none, so a
   body-temperature comparison across the whole series is partly an artefact of which compound got
   corrected. `demo_acids.py` quotes the series at 298.15 K for that reason.

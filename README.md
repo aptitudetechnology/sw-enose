@@ -103,9 +103,15 @@ temperature. Both ends are now measured and only the chain between them is model
 | octanethiol | 0.0007 | 92.7 µM | 1.3 parts per thousand | 0.7–4.6 ppt |
 
 The compounds split by water solubility, as the physics requires. For the three soluble ones a
-measured EC50 is reached at tens to low hundreds of ppb — the range noses work in — so **there is no
-sensitivity gap left to explain for them**. Fed a breath-like 20/10/2 ppb mixture, peak modelled
-receptor activation is 0.69 of maximum, with 10 of 23 receptors above 1%.
+measured EC50 is reached at tens to low hundreds of ppb. Fed a breath-like 20/10/2 ppb mixture, peak
+modelled receptor activation is 0.69 of maximum, with 10 of 23 receptors above 1% — an upper bound,
+since equilibrium partitioning is a ceiling on the liquid concentration.
+
+Whether that leaves a sensitivity gap is **unmeasured**, not resolved. An EC50 is a *half-maximal*
+receptor response; a person's detection threshold sits well below it, so landing in "tens of ppb" at
+EC50 says nothing yet about whether the chain reaches threshold sensitivity. That needs the human
+detection-threshold comparison, which has not been done. (An earlier version of this section said
+there was "no sensitivity gap left to explain". That overstated it; see `sonnet-review.md`.)
 
 **Correction to the previous commit.** That commit reported the opposite: ppm-and-above for every
 odorant, and 2e-3 activation at breath-like ppb. It had no real constants and swept an invented band
@@ -163,10 +169,15 @@ the same model moves it. Anything smaller than that is not an effect. Measured o
 0.07 µM sulfur trace under strong sour, baseline recognition 0.87, chance 0.50 — because the easy
 four-smell task sits at 1.00 and so cannot show an effect in either direction.
 
-**Efficacy matters, and the data we already hold contradicts the assumption.** Our fits of Singh et
-al.'s raw curves give relative efficacy among agonists at the same receptor of 0.03–1.0, median 0.43:
-a typical agonist acts at under half the strength of the best agonist at its receptor, not the 1.0
-`m2or.py` assumes. Redrawing from that measured spread, recognition ranges 0.50–1.00, median 0.77 —
+**Conclusions are sensitive to efficacy, which is unknown.** M2OR records no efficacy, so `m2or.py`
+assumes 1.0. Our fits of Singh et al.'s raw curves give relative efficacy among agonists at the same
+receptor of 0.03–1.0, median 0.43 — but that spread is weak evidence. **17 of the 24 underlying curves
+do not saturate**, and for those only `A/EC50` is pinned down, so `A` itself is not identifiable and
+part of the spread may be fit degeneracy. Dividing by each receptor's largest `A` also puts exactly
+one 1.0 in the sample per receptor by construction. The 6 saturated curves alone give a median of
+0.22, so the spread is not *purely* artefact, but six curves from one assay cannot show that
+efficacy = 1 is wrong. What they can do is supply a plausible range to stress-test against.
+Redrawing from it, recognition ranges 0.50–1.00, median 0.77 —
 sometimes exactly chance. Even when discrimination holds, only 0.39–0.83 of the sparse code's active
 cells survive, against 0.017 overlap between genuinely different smells. So the nose can report
 **that** two smells
@@ -178,11 +189,12 @@ or more receptors tested against both. The recognition scores in `demo_mixture.p
 mostly not a measured difference between odorants but a difference in which receptors each odorant
 was screened against. `demo_mixture.py` now prints that caveat beside its own results.
 
-**All three testable stage parameters matter.** Convergence is load-bearing: recognition falls to
-0.60 at one neuron per type against a baseline of 0.87, because stage 2 acts only by averaging
-neuron noise away. Both adaptation constants show ordered trends above the reseeding floor of 0.07 —
-`adapt_tau` rising 0.79 → 0.90 (rank correlation +1.00), `adapt_strength` falling 0.90 → 0.82
-(−0.90). Note the sign: on a *static* presentation adaptation can only subtract signal, so "matters"
+**Convergence clearly matters; the adaptation constants only marginally.** Convergence is
+load-bearing: recognition falls to 0.60 at one neuron per type against a baseline of 0.87, because
+stage 2 acts only by averaging neuron noise away. Both adaptation constants show ordered trends, but
+thin ones — `adapt_tau` rising 0.79 → 0.90 (rank correlation +1.00) and `adapt_strength` falling
+0.90 → 0.82 (−0.90), spreads of 0.11 and 0.08 against a reseeding floor of 0.07. They clear the
+floor, but not by much, and three seeds is a small sample. Note the sign: on a *static* presentation adaptation can only subtract signal, so "matters"
 here means "measurably costs accuracy", not "helps". A task with a changing background, where
 adaptation should earn its keep, is not built. `recover_tau` still gets **no verdict** at all:
 recovery acts only once an odour is removed and the task never removes one, so its flat result is an
@@ -199,11 +211,24 @@ are visible. A measurement tool is only as good as the pipeline it measures.
 Rule 4 says a software model cannot recover information the receptors do not carry. That is a hard
 bound, and `demo_ceiling.py` measures both where it is and whether the pipeline reaches it.
 
-**Where it is.** Cosine between activation profiles on the acid panel: C9 vs C10 is **0.926**, C8 vs
-C10 0.920, and 6 of the 28 pairs are above 0.85. Adjacent chain lengths drive the same two or three
-receptors at similar EC50s, so a real nose separates nonanoic from decanoic acid and this array
-cannot. That is a fact about the eight measured columns, not about the code: more receptors would
-move it, more software would not.
+**Where it is — and it depends on noise.** Only *identical* activation profiles are inseparable at
+any noise level. Similar ones are a distance, and whether that distance can be resolved depends on
+how much noise sits on top of it. `separability.noise_tolerance` measures, per pair, the largest
+neuron noise at which two-way accuracy stays at or above 0.95:
+
+| pair | cosine | accuracy at noise 0.1 | 0.8 | 1.6 | 3.2 |
+|---|---|---|---|---|---|
+| C9 vs C10 | 0.926 | 1.00 | 0.96 | 0.81 | 0.66 |
+| C8 vs C10 | 0.920 | 1.00 | 0.98 | 0.78 | 0.62 |
+| C4 vs C5 | 0.879 | 1.00 | 0.96 | 0.83 | 0.64 |
+
+Similarity does predict *which* pairs fail first: the most similar ones go first. But **every pair
+separates at 0.95 or better up to noise 0.8**, about eight times the 0.05–0.1 the demos run at. So
+at this model's operating noise the receptor data is **not** the binding limit on the acid panel.
+Whether it binds in a real nose depends on real neural noise, and that number is invented here.
+
+(An earlier version said the array "cannot" separate C9 from C10 because their cosine is 0.926. That
+conflated similar with identical; `sonnet-review.md` caught it with the measurement above.)
 
 **Whether we reach it — and a bug this found.** Noise enters at the glomerular stage and every later
 stage is a deterministic function of it, so the best readout of the glomerular vector bounds any
@@ -223,7 +248,8 @@ here and reproducing Dasgupta's own 6 at his own array size of 50.
 
 What remains is the honest cost of binarising to a sparse code, and it grows with noise (+0.06 at
 noise 0.05, +0.19 at 0.40) because top-k selection is brittle where a real-valued readout degrades
-gracefully. Small enough that the receptor data, not the architecture, is again the limit.
+gracefully. Small enough that further architecture work has little left to give at these noise
+levels; what limits the nose beyond that is unmeasured, not shown to be the receptor data.
 
 This was invisible to every other check here: the stage's numbers were cited, its tests passed, and
 recognition on the easy four-smell panel was a perfect 1.00. Only comparing against the best

@@ -139,7 +139,7 @@ does anything once an odour is taken away, and this task never removes one. Test
 presentation with a blank period in it, which is not built. Reporting it as "does not matter" would
 have been a false reassurance.
 
-The efficacy assumption is the serious one. It is not an invented stage constant that happens not to
-matter; it is a value the data we already hold contradicts, and it decides whether a near-threshold
-discrimination works at all. Nothing in this repo should claim a near-threshold result from M2OR
+The efficacy assumption is the serious one. It is unknown, the spread used here is a weak estimate
+(17 of the 24 Singh curves behind it do not saturate, so their efficacy is not identifiable), and
+across that plausible range it decides whether a near-threshold discrimination works at all. Nothing in this repo should claim a near-threshold result from M2OR
 parameters until efficacy is measured or bounded per pair.""")

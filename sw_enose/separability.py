@@ -63,7 +63,10 @@ def activation_profiles(params: ReceptorParams, conc_um=200.0) -> dict:
 def pairwise_similarity(params: ReceptorParams, conc_um=200.0) -> list:
     """[(cosine, odorant_a, odorant_b), ...] most similar first.
 
-    A cosine near 1.0 is a hard ceiling on telling that pair apart, not a shortcoming of the model.
+    Only a cosine of exactly 1.0 is a hard ceiling: identical profiles cannot be told apart at any
+    noise level. Anything below 1.0 is a distance, and whether it can be resolved depends on how much
+    noise sits on top of it. Use `noise_tolerance` for that question; similarity alone does not
+    answer it.
     """
     prof = activation_profiles(params, conc_um)
     rows = []
@@ -140,3 +143,41 @@ def describe_gap(acc: dict, tol=0.05) -> str:
             f"vector scores {acc['ceiling']:.3f} where the pipeline scores "
             f"{acc['sparse_memory']:.3f}, so the stages are discarding signal the receptors did "
             "provide. That is a software problem, not a data one")
+
+
+NOISE_GRID = (0.05, 0.1, 0.2, 0.4, 0.8, 1.6, 3.2)
+
+
+def pair_accuracy(params: ReceptorParams, a, b, noise, conc_um=200.0, n_train=60, n_test=150,
+                  seed=1) -> float:
+    """Two-way nearest-centroid accuracy on the glomerular vector for one pair, at one noise level."""
+    nose = BiomimeticNose(params, neuron_noise=noise, seed=seed)
+    idx = {o: j for j, o in enumerate(params.odorants)}
+
+    def draw(name, n):
+        c = np.zeros(len(params.odorants))
+        c[idx[name]] = conc_um
+        return np.array([nose.glomeruli(c) for _ in range(n)])
+
+    tr = {a: draw(a, n_train), b: draw(b, n_train)}
+    te = {a: draw(a, n_test), b: draw(b, n_test)}
+    return nearest_centroid_accuracy(tr, te, "euclid")
+
+
+def noise_tolerance(params: ReceptorParams, conc_um=200.0, grid=NOISE_GRID, threshold=0.95,
+                    **kw) -> list:
+    """For every odorant pair, the largest neuron noise at which it is still told apart.
+
+    Returns [(tolerance, cosine, a, b, {noise: accuracy}), ...], least tolerant first. `tolerance`
+    is the highest grid value with accuracy >= threshold, 0.0 if none, or inf if every grid value
+    passes. This is the statement that replaces "similar profiles cannot be separated": similar
+    profiles can be, until the noise is large enough to close the distance between them.
+    """
+    sim = {(x, y): c for c, x, y in pairwise_similarity(params, conc_um)}
+    rows = []
+    for (x, y), cos in sim.items():
+        accs = {n: pair_accuracy(params, x, y, n, conc_um=conc_um, **kw) for n in grid}
+        passing = [n for n in grid if accs[n] >= threshold]
+        tol = float("inf") if len(passing) == len(grid) else (max(passing) if passing else 0.0)
+        rows.append((tol, cos, x, y, accs))
+    return sorted(rows, key=lambda r: (r[0], -r[1]))

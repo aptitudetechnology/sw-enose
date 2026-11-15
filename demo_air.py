@@ -96,9 +96,11 @@ print("  With real constants the acids do drive the array at breath-like ppb. Th
 print("  this demo reported 2e-3 here, purely because its invented constants were too small.")
 
 print("""
-Where that leaves the sensitivity question. For water-soluble odorants there is no longer a gap to
-explain: equilibrium partitioning plus cultured-cell EC50s land in the tens of ppb, which is the
-range noses work in. For the poorly soluble ones -- the thiol above all -- the chain still asks for
+Where that leaves the sensitivity question: UNMEASURED, not resolved. For water-soluble odorants the
+earlier ppm-everywhere result was an artefact of invented constants; with real ones a half-maximal
+EC50 is reached at tens of ppb. But a detection threshold sits well below half-maximal response, and
+no human threshold has been compared here, so this does not show the chain reaches a nose's
+sensitivity. For the poorly soluble ones -- the thiol above all -- the chain still asks for
 ppm, and that is where to keep looking: at odorant-binding proteins, at accumulation away from
 equilibrium, and at the fact that two of those three Henry constants are estimates rather than
 measurements. Getting a measured constant for octanethiol would do more than any modelling here.""")

@@ -15,7 +15,8 @@ from sw_enose.bio import DASGUPTA_FAN_IN_RATIO, default_fan_in
 from sw_enose.coverage import restrict_to_tested
 from sw_enose.m2or import build_params
 from sw_enose.panels import ACID_CARBONS, ACID_SERIES
-from sw_enose.separability import describe_gap, pairwise_similarity, stage_accuracies
+from sw_enose.separability import (NOISE_GRID, describe_gap, noise_tolerance, pairwise_similarity,
+                                   stage_accuracies)
 
 t = restrict_to_tested(build_params(
     os.path.join(os.path.dirname(__file__), "data/m2or/repo/M2OR_20230428.csv"), ACID_SERIES),
@@ -25,8 +26,8 @@ short = lambda a: f"C{ACID_CARBONS[a]}"
 print("=" * 76)
 print("1. WHERE THE BOUND IS: separability in the measured receptor space")
 print("=" * 76)
-print("Cosine between activation profiles. 1.00 means indistinguishable by ANY processing, at any")
-print("noise level: no stage, memory or classifier can separate them.\n")
+print("Cosine between activation profiles. Only 1.00 means indistinguishable by ANY processing at any")
+print("noise level. Below that it is a distance, and noise decides whether it can be resolved.\n")
 sim = pairwise_similarity(t)
 for cos, a, b in sim[:5]:
     print(f"   {short(a):>4s} vs {short(b):<4s} {cos:.3f}   <-- hardest")
@@ -34,9 +35,16 @@ print("   ...")
 for cos, a, b in sim[-3:]:
     print(f"   {short(a):>4s} vs {short(b):<4s} {cos:.3f}")
 print(f"\n   {sum(1 for c, _, _ in sim if c > 0.85)} of {len(sim)} pairs are above 0.85.")
-print("   Adjacent chain lengths share the same two or three receptors at similar EC50s. A real")
-print("   nose separates C9 from C10; this array cannot, and that is a fact about the 8 measured")
-print("   columns rather than about the code. More receptors would move it. More software will not.")
+print("\n   How much noise does each pair tolerate? Two-way accuracy on the glomerular vector:\n")
+tol = noise_tolerance(t)
+print("   pair         cos  " + "".join(f"{n:>6}" for n in NOISE_GRID))
+for tv, cos, a, b, acc in tol[:5]:
+    print(f"   {short(a):>4s} v {short(b):<4s} {cos:.3f} " + "".join(f"{acc[n]:6.2f}" for n in NOISE_GRID))
+worst = min(r[0] for r in tol)
+print(f"\n   Every pair holds accuracy >= 0.95 up to noise {worst}, about eight times the 0.05-0.1")
+print("   these demos run at. The most similar pairs do fail first, so similarity predicts the")
+print("   ORDER of failure, but at operating noise the receptor data is not what limits this panel.")
+print("   Whether it binds in a real nose depends on real neural noise, which is invented here.")
 
 print("\n" + "=" * 76)
 print("2. ARE WE AT IT: pipeline against an optimal readout")
@@ -76,8 +84,8 @@ print("""
   What remains is the honest cost of the stage: binarising to a sparse code loses a little, and
   loses more as noise rises (+0.06 at noise 0.05, +0.19 at 0.40), because top-k selection is
   brittle where a real-valued readout degrades gracefully. That residue is the price of the
-  biomimetic representation, and it is now small enough that the receptor data, not the
-  architecture, is again what limits this nose.
+  biomimetic representation, and it is now small enough that further architecture work has little
+  left to give at these noise levels.
 
   Caveat on the word ceiling: it is the best of the readouts tried, so it is a LOWER BOUND. A
   cleverer classifier might beat it, which would mean the real gap is larger, never smaller.""")

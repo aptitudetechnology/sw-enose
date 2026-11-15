@@ -119,3 +119,46 @@ def test_describe_gap_distinguishes_the_two_verdicts():
                                                        "sparse_memory": 0.98})
     assert "BELOW THE CEILING" in describe_gap({"gap": 0.4, "ceiling": 0.99,
                                                 "sparse_memory": 0.59})
+
+
+# --- noise tolerance: similar is not identical ---
+
+def _two(cols):
+    from sw_enose.data import ReceptorParams
+    aff = np.array(cols, float)
+    return ReceptorParams(aff, np.ones_like(aff), 1.0, ("A", "B"), "synthetic:pair")
+
+
+def test_similar_but_not_identical_profiles_separate_at_low_noise():
+    """The review's correction, pinned: a cosine well above 0.9 is still separable when noise is low.
+    Only identical profiles are a hard ceiling."""
+    from sw_enose.separability import pair_accuracy
+    p = _two([[10.0, 12.0], [10.0, 9.0], [50.0, 45.0], [30.0, 30.0]])
+    assert pairwise_similarity(p)[0][0] > 0.9
+    assert pair_accuracy(p, "A", "B", noise=0.02, n_train=30, n_test=60) >= 0.95
+
+
+def test_identical_profiles_stay_at_chance_whatever_the_noise():
+    from sw_enose.separability import pair_accuracy
+    p = _two([[10.0, 10.0], [20.0, 20.0], [40.0, 40.0]])
+    for noise in (0.01, 0.5):
+        assert pair_accuracy(p, "A", "B", noise=noise, n_train=30, n_test=100) < 0.7
+
+
+def test_noise_tolerance_falls_with_noise_and_reports_every_pair():
+    from sw_enose.separability import noise_tolerance
+    p = synthetic_params(n_receptors=8, odorants=("A", "B", "C"), seed=5)
+    rows = noise_tolerance(p, grid=(0.05, 0.8, 6.4), n_train=20, n_test=40)
+    assert len(rows) == 3
+    for tol, cos, a, b, acc in rows:
+        assert set(acc) == {0.05, 0.8, 6.4}
+        assert acc[0.05] >= acc[6.4] - 0.05, "more noise should not help"
+        assert tol in (0.0, 0.05, 0.8, 6.4, float("inf"))
+
+
+@pytest.mark.skipif(not M2OR.exists(), reason="M2OR snapshot not fetched")
+def test_c9_and_c10_are_separable_at_operating_noise():
+    """An earlier README said this array 'cannot' separate C9 from C10. It can."""
+    from sw_enose.separability import pair_accuracy
+    t = acids()
+    assert pair_accuracy(t, "nonanoic acid", "decanoic acid", noise=0.1, n_train=30, n_test=80) >= 0.95

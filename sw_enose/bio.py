@@ -22,7 +22,9 @@ from .data import ReceptorParams
 # can be odorant-selective. Measured on the 8-receptor acid panel, an absolute fan_in of 6 scored
 # 0.46 where the scaled rule scores 0.95, against a ceiling of 1.00 (sw_enose/separability.py).
 DASGUPTA_FAN_IN_RATIO = 6 / 50
-MIN_FAN_IN = 2          # OURS: below 2 a cell combines nothing, it just relabels one glomerulus
+MIN_FAN_IN = 2          # OURS: below 2 a cell combines nothing, it just relabels one glomerulus.
+# Not held out: on the 8-glomerulus acid panel this floor is what sets fan_in, and 2 is also where a
+# scan on that same task peaked. The 12% ratio is Dasgupta's; the floor is a judgement call.
 
 
 def default_fan_in(n_types: int) -> int:
