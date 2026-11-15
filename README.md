@@ -322,6 +322,30 @@ held-out error is 27.1 Hz against 25.9 for the published configuration, r 0.47 f
 configuration's peak gets above about 90 Hz. Within this range the output barely responds to these
 parameters.
 
+**Short-term synaptic depression closes most of the gap** (`demo_depression.py`,
+`sw_enose/depression.py`; 16 Nov 2026). A literature search (`reports/Drosophila-PN-Transience-Mechanisms.md`,
+audited in `sources/AUDIT_Drosophila-PN-Transience-Mechanisms.md`) pointed to depression at the
+ORN→PN synapse. Nagel, Hong & Wilson 2015's rate-form depression model, placed between the receptor
+input and the Olsen equation:
+
+| DM4, 5 recordings | RMSE, Hz | r | mean, Hz | peak, Hz |
+|---|---|---|---|---|
+| recorded | — | — | 45.5 | 167 |
+| Olsen alone | 69.9 | 0.57 | 107 | 143 |
+| + depression, Nagel's measured values, nothing fitted | 27.6 | 0.77 | 25 | 72 |
+| + depression, fitted leave-one-recording-out | **17.0** (held-out) | 0.76 | 46.5 | 106 |
+| published Lazar circuit | 25.9 | 0.47 | — | ~65 |
+
+The measured values come from other glomeruli and from nerve stimulation, yet with nothing fitted
+they cut the error by 60%. They over-correct: Olsen's constants already contain steady-state
+depression, so stacking the measured amount double-counts, and the best-fitting rate is about half.
+Fitted, held-out error is 17 Hz with the mean level right, below the Lazar circuit and below the
+~25 spikes/s Kim et al. 2015 report for their own model (different binning). **Caveats:** the data
+fix the depth of depression, not its speed (a valley of (r, τ) pairs score within a few Hz), so
+landing on Nagel's τ is not independent confirmation; peaks remain low (106 against 167 Hz); this
+is one glomerulus, one odorant, and modelled OSN input. Depression is not yet in the default
+pipeline.
+
 ## Human detection thresholds (15 Nov 2026)
 
 `demo_thresholds.py` asks whether the model's receptor activation at each acid's measured human

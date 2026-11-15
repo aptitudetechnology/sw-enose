@@ -187,7 +187,14 @@ comparison.
 - [x] **Swept the Lazar circuit** (`demo_lazar_sweep.py`): PN input gains and pre-LN feedback, 0.25×–4×,
   625 configurations, leave-one-recording-out. Fitted held-out RMSE 27.1 vs 25.9 published; no
   configuration peaks above ~90 Hz. These four parameters cannot produce the DM4 transients.
-- [ ] Find what CAN produce the DM4 transients. Candidates: the Lazar circuit's synaptic kinetics
+- [x] **Tested short-term synaptic depression** (`demo_depression.py`), from the audited Gemini report:
+  Nagel 2015's measured values cut Olsen's DM4 error 69.9 → 27.6 Hz with nothing fitted; fitted
+  leave-one-out, 17.0 Hz held-out with mean firing right. Depth identifiable, time constant not.
+- [ ] Decide whether to put depression into the default pipeline. It needs a time course, which the
+  static sniff path lacks, and its strength was fitted on one glomerulus.
+- [ ] Peaks are still low (106 vs 167 Hz): test whether ORN rate-of-change (Kim 2015) or GABA
+  presynaptic inhibition adds the missing onset burst.
+- [ ] (superseded by the above) Find what CAN produce the DM4 transients. Candidates: the Lazar circuit's synaptic kinetics
   (Post-LN `a`/`b` rates), sw-enose's adaptation scored on RMSE rather than r, or a transient
   (contrast) term ahead of Olsen. Judge on held-out recordings and on RMSE, not peaks alone.
 - [ ] Ask the Lazar group which circuit configuration in the paper reproduces the DM4 peaks.
