@@ -12,6 +12,7 @@ and say for each stage how well the biology behind it is established.
 |---|---|---|
 | Processing stages (binding, convergence, adaptation, normalisation, sparse code) | Yes, modelled on animal olfaction | Built, tested on synthetic data. Stages 1 and 4 verified in cells or flies; stages 2 and 3 use invented numbers; stage 5 from a modelling paper. See `sources/AUDIT_*.md` |
 | Receptors themselves | **Partly**: real human EC50s from M2OR (`sw_enose/m2or.py`, `demo_m2or.py`) | 626 measured agonist pairs across 128 reference receptors. Efficacy assumed; untested pairs (most of them) treated as no response |
+| Air-to-mucus conversion (ppb in air to uM at the receptor) | Partly | Physics built and tested (`sw_enose/air.py`, `demo_air.py`). Ideal-gas and Henry's-law steps are arithmetic; **no compound Henry constants are shipped**, and equilibrium, mucus composition, uptake and kinetics are all unmodelled |
 | Comparison with any real nose or sensor | No | Not started |
 
 ## Status labels (same as the Hygiene Trap pages)
@@ -38,6 +39,8 @@ real breath, water or health.** No output of this code is evidence about a perso
 - `sw_enose/bio.py`: the biomimetic stages and `BIOLOGY`, which states the evidence for each stage.
 - `sw_enose/m2or.py`: human receptor EC50s from M2OR. `sw_enose/singh.py`: our fits of Singh 2019's raw data and a
   held-out mixture check. `sw_enose/mixture.py`: named gas mixtures in, concentration vector out.
+- `sw_enose/air.py`: air-to-mucus conversion. ppb in air to uM at the receptor, via the gas law and
+  Henry's law, with `AIR_TO_MUCUS` naming everything it leaves out. Ships no compound constants.
 - `sw_enose/pipeline.py`: a plain (non-biomimetic) baseline pipeline, kept for comparison.
 - `sw_enose/data.py`: parameter loading with mandatory provenance.
 - `demo.py`: a worked example on synthetic odorants.
@@ -64,10 +67,26 @@ because different labs tested different receptors, so `demo_m2or.py` compares od
 - **Breath sulfur gases.** Hydrogen sulfide is not in the M2OR snapshot, methyl mercaptan has single-concentration
   screening hits only, and dimethyl sulfide has no recorded agonist response. The nose refuses to model them.
 
+## A gap the air conversion opened up (15 Nov 2026)
+
+`demo_air.py` asks what would have to be in the air for a receptor to meet the EC50 the assays
+measured. Across a wide band of plausible Henry constants the answer is ppm, sometimes thousands of
+ppm; breath traces are usually low ppb. Fed a breath-like mixture at ppb, the model's peak receptor
+activation is about 2e-3 of maximum, against 0.99 at the liquid concentrations the other demos use.
+
+This is **not** evidence that a nose cannot smell such gases at ppb, because people demonstrably
+can. It means this chain — cultured-cell EC50s plus equilibrium air-water partitioning — does not
+reproduce real olfactory sensitivity, so something in it is wrong or missing. Candidates: the assays
+needing far more odorant than receptors in a nose do, transport by odorant-binding proteins,
+accumulation in mucus away from equilibrium, and amplification after binding. Which one, we cannot
+say. Until that is resolved, do not feed the nose real ppb figures and expect nose-like behaviour.
+
 ## Not done yet
 
-Air-to-mucus conversion (all concentrations are in liquid), sequence-to-receptor
-steps from genome data (the hard, unsolved step), and any comparison with real sensor or
-gas-chromatography recordings.
+Henry's law constants for any actual compound (the physics is in place and refuses to guess; the
+values need a source we have opened), nasal uptake and deposition, sequence-to-receptor steps from
+genome data (the hard, unsolved step), and any comparison with real sensor or gas-chromatography
+recordings.
 
-Run: `python3 demo.py`, `python3 demo_bio.py`, `python3 demo_m2or.py`, `python3 demo_mixture.py` and `python3 -m pytest -q`.
+Run: `python3 demo.py`, `python3 demo_bio.py`, `python3 demo_m2or.py`, `python3 demo_mixture.py`,
+`python3 demo_air.py` and `python3 -m pytest -q`.
