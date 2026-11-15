@@ -12,7 +12,8 @@ and say for each stage how well the biology behind it is established.
 |---|---|---|
 | Processing stages (binding, convergence, adaptation, normalisation, sparse code) | Yes, modelled on animal olfaction | Built, tested on synthetic data. Stages 1 and 4 verified in cells or flies; stages 2 and 3 use invented numbers; stage 5 from a modelling paper. See `sources/AUDIT_*.md` |
 | Receptors themselves | **Partly**: real human EC50s from M2OR (`sw_enose/m2or.py`, `demo_m2or.py`) | 626 measured agonist pairs across 128 reference receptors. Efficacy assumed, and `demo_uncertainty.py` shows that assumption **changes the answer** near threshold; untested pairs (most of them) treated as no response |
-| How much the answers depend on what we don't know | — | Measured (`sw_enose/uncertainty.py`, `sw_enose/coverage.py`, `demo_uncertainty.py`). Adaptation constants don't matter; convergence ratio and efficacy do |
+| How much the answers depend on what we don't know | — | Measured (`sw_enose/uncertainty.py`, `sw_enose/coverage.py`, `demo_uncertainty.py`). Efficacy, convergence and both adaptation constants all matter |
+| Is the pipeline using the information the receptors give it? | — | Measured (`sw_enose/separability.py`, `demo_ceiling.py`). It was discarding more than half of it; now within ~0.1 of an optimal readout |
 | Air-to-mucus conversion (ppb in air to uM at the receptor) | Partly | Built and tested (`sw_enose/air.py`, `demo_air.py`). Gas-law and Henry's-law steps are arithmetic; constants for the six demo odorants are **real** (Sander v5.0.0, `data/henry/`), two of the six only as estimates. Equilibrium, mucus composition, uptake and kinetics are all still unmodelled |
 | Comparison with any real nose or sensor | No | Not started |
 
@@ -45,6 +46,8 @@ real breath, water or health.** No output of this code is evidence about a perso
   any odorant it has no value for. `data/henry/` holds real values for the six demo odorants.
 - `sw_enose/panels.py`: the odorant panels. `ACID_SERIES` (C3-C10 straight-chain fatty acids) is the
   reference panel, chosen by coverage; `EVOCATIVE_PANEL` is the old one, kept so earlier demos run.
+- `sw_enose/separability.py`: the ceiling. How separable the odorants are in the measured receptor
+  space at all, and how much of that separability each stage actually passes on.
 - `sw_enose/coverage.py`: which receptor-odorant pairs were actually tested. `support`, `describe`
   and `restrict_to_tested` so a result can state what measurement it rests on.
 - `sw_enose/uncertainty.py`: does a conclusion survive what we don't know? Efficacy redrawing from
@@ -157,15 +160,16 @@ are tuned.
 
 `demo_uncertainty.py` changes each unknown and asks whether the answer moves by more than reseeding
 the same model moves it. Anything smaller than that is not an effect. Measured on a hard task — a
-0.07 µM sulfur trace under strong sour, baseline recognition 0.79, chance 0.50 — because the easy
+0.07 µM sulfur trace under strong sour, baseline recognition 0.87, chance 0.50 — because the easy
 four-smell task sits at 1.00 and so cannot show an effect in either direction.
 
 **Efficacy matters, and the data we already hold contradicts the assumption.** Our fits of Singh et
 al.'s raw curves give relative efficacy among agonists at the same receptor of 0.03–1.0, median 0.43:
 a typical agonist acts at under half the strength of the best agonist at its receptor, not the 1.0
-`m2or.py` assumes. Redrawing from that measured spread, recognition ranges 0.49–1.00 — sometimes
-chance. Even when discrimination holds, only 0.35–0.68 of the sparse code's active cells survive,
-against 0.013 overlap between genuinely different smells. So the nose can report **that** two smells
+`m2or.py` assumes. Redrawing from that measured spread, recognition ranges 0.50–1.00, median 0.77 —
+sometimes exactly chance. Even when discrimination holds, only 0.39–0.83 of the sparse code's active
+cells survive, against 0.017 overlap between genuinely different smells. So the nose can report
+**that** two smells
 differ, but not **which** code belongs to which smell, and near threshold not even that.
 
 **Coverage is worse than the headline figure suggests.** Of 23 receptors with a measured agonist
@@ -174,21 +178,67 @@ or more receptors tested against both. The recognition scores in `demo_mixture.p
 mostly not a measured difference between odorants but a difference in which receptors each odorant
 was screened against. `demo_mixture.py` now prints that caveat beside its own results.
 
-**Of the invented stage parameters, one matters and one is untestable here.** Recognition trends with
-the convergence ratio across the whole sweep (0.58 at 1 neuron to 0.86 at 500, rank correlation
-+0.94, against 0.11 from reseeding), because stage 2 acts only by averaging neuron noise away — so
-that invented number is load-bearing near threshold. The adaptation constants `adapt_tau` and
-`adapt_strength` move it less than reseeding does and can stay invented. `recover_tau` gets **no
-verdict**: recovery only acts once an odour is removed and the task never removes one, so its flat
-result is an absence of evidence, not evidence of absence.
+**All three testable stage parameters matter.** Convergence is load-bearing: recognition falls to
+0.60 at one neuron per type against a baseline of 0.87, because stage 2 acts only by averaging
+neuron noise away. Both adaptation constants show ordered trends above the reseeding floor of 0.07 —
+`adapt_tau` rising 0.79 → 0.90 (rank correlation +1.00), `adapt_strength` falling 0.90 → 0.82
+(−0.90). Note the sign: on a *static* presentation adaptation can only subtract signal, so "matters"
+here means "measurably costs accuracy", not "helps". A task with a changing background, where
+adaptation should earn its keep, is not built. `recover_tau` still gets **no verdict** at all:
+recovery acts only once an odour is removed and the task never removes one, so its flat result is an
+absence of evidence, not evidence of absence.
+
+**Correction to the previous commit**, which reported that the adaptation constants move the answer
+less than reseeding does and could stay invented. That was an artefact of the sparse-coding bug
+described below: the broken code was lossy enough to raise the reseeding floor to 0.11 and bury the
+adaptation effect under it. With the expansion layer fixed, the floor drops to 0.07 and both trends
+are visible. A measurement tool is only as good as the pipeline it measures.
+
+## The ceiling, and whether we reach it (15 Nov 2026)
+
+Rule 4 says a software model cannot recover information the receptors do not carry. That is a hard
+bound, and `demo_ceiling.py` measures both where it is and whether the pipeline reaches it.
+
+**Where it is.** Cosine between activation profiles on the acid panel: C9 vs C10 is **0.926**, C8 vs
+C10 0.920, and 6 of the 28 pairs are above 0.85. Adjacent chain lengths drive the same two or three
+receptors at similar EC50s, so a real nose separates nonanoic from decanoic acid and this array
+cannot. That is a fact about the eight measured columns, not about the code: more receptors would
+move it, more software would not.
+
+**Whether we reach it — and a bug this found.** Noise enters at the glomerular stage and every later
+stage is a deterministic function of it, so the best readout of the glomerular vector bounds any
+later readout. The pipeline was scoring **0.458 against a bound of 0.993** — discarding more than
+half the separability the receptors provided.
+
+The cause was stage 5. Dasgupta et al. model each expansion cell as sampling about 6 of ~50
+projection neurons: a **ratio** of 12%, not an absolute 6. Carried across as a literal `fan_in=6`,
+on an 8-glomerulus array every cell reads 75% of the input, so all 2,000 cells see nearly the same
+thing and none can be odorant-selective. `bio.default_fan_in` now scales the ratio instead, giving 2
+here and reproducing Dasgupta's own 6 at his own array size of 50.
+
+| | sparse-code accuracy | gap to bound |
+|---|---|---|
+| absolute `fan_in=6` | 0.458 | +0.539 |
+| ratio-scaled (now default) | 0.903 | +0.095 |
+
+What remains is the honest cost of binarising to a sparse code, and it grows with noise (+0.06 at
+noise 0.05, +0.19 at 0.40) because top-k selection is brittle where a real-valued readout degrades
+gracefully. Small enough that the receptor data, not the architecture, is again the limit.
+
+This was invisible to every other check here: the stage's numbers were cited, its tests passed, and
+recognition on the easy four-smell panel was a perfect 1.00. Only comparing against the best
+possible readout of the same input exposed it. Note also that "ceiling" is the best of the readouts
+tried, so it is a **lower bound** — a cleverer classifier would make the real gap larger, never
+smaller.
 
 ## Not done yet
 
 Published human detection thresholds in air for C3-C10, which is the next piece and the one the
 acid panel was chosen to enable. A measured Henry constant for C8, C9 and C10, plus temperature
 coefficients for C9 and C10. Per-pair efficacy bounds carried through the stages (the spread is
-measured, but the model still takes a single efficacy per pair). A presentation with a blank period
-so adaptation recovery can be tested at all. A measured convergence ratio, now that it is known to
+measured, but the model still takes a single efficacy per pair). A presentation with a blank period so adaptation recovery can be
+tested at all, and one with a changing background so adaptation can show a benefit rather than only
+a cost. A measured convergence ratio, now that it is known to
 matter. Nasal uptake and deposition. Sequence-to-receptor steps from genome data (the hard, unsolved
 step), and any comparison with real sensor or gas-chromatography recordings.
 

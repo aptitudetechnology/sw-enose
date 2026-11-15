@@ -15,6 +15,21 @@ Stages, in the order a smell travels:
 import numpy as np
 from .data import ReceptorParams
 
+# Dasgupta, Stevens & Navlakha, Science 2017 (PMID 29123069) model each of ~2000 expansion cells as
+# sampling ~6 of ~50 projection neurons: a RATIO of about 12%, not an absolute count of 6. Carrying
+# the 6 across to a smaller array is a mistake that quietly destroys the code: with 8 glomeruli a
+# cell sampling 6 of them reads 75% of the input, so every cell sees nearly the same thing and none
+# can be odorant-selective. Measured on the 8-receptor acid panel, an absolute fan_in of 6 scored
+# 0.46 where the scaled rule scores 0.95, against a ceiling of 1.00 (sw_enose/separability.py).
+DASGUPTA_FAN_IN_RATIO = 6 / 50
+MIN_FAN_IN = 2          # OURS: below 2 a cell combines nothing, it just relabels one glomerulus
+
+
+def default_fan_in(n_types: int) -> int:
+    """Dasgupta's sampling ratio scaled to this array, floored at MIN_FAN_IN."""
+    return int(min(max(round(DASGUPTA_FAN_IN_RATIO * n_types), MIN_FAN_IN), max(1, n_types - 1)))
+
+
 BIOLOGY = {
     "competitive_binding": ("Odorants compete for the same binding site, so a mixture is not the sum of its parts.",
                             "ESTABLISHED for 12 of 15 human and mouse receptors in cultured cells; same model form as here "
@@ -29,14 +44,16 @@ BIOLOGY = {
                       "receptor activation to firing rate (250 spikes/s) is invented, and these are fly numbers"),
     "sparse_expansion": ("Projection neurons connect randomly to many more cells, and only the most active few fire.",
                          "PLAUSIBLE: numbers as used in a modelling paper citing fly anatomy (Dasgupta, Stevens & Navlakha, "
-                         "Science 2017, PMID 29123069): 2,000 cells, about 6 inputs each, top 5% active"),
+                         "Science 2017, PMID 29123069): 2,000 cells, about 6 of ~50 inputs each, top 5% active. "
+                         "We carry their SAMPLING RATIO (12%), not the absolute 6, because on a small array a "
+                         "fan-in of 6 makes every cell read most of the input and the code stops discriminating"),
 }
 
 
 class BiomimeticNose:
     def __init__(self, params: ReceptorParams, neurons_per_type=50, neuron_noise=0.1,
                  adapt_tau=8.0, adapt_strength=0.6, recover_tau=4.0,
-                 norm_sigma=0.1, n_expansion=2000, fan_in=6, sparsity=0.05, seed=0,
+                 norm_sigma=0.1, n_expansion=2000, fan_in=None, sparsity=0.05, seed=0,
                  normalisation="olsen", max_orn_rate=250.0):
         self.p = params
         self.rng = np.random.default_rng(seed)
@@ -46,10 +63,11 @@ class BiomimeticNose:
         self.norm_sigma = norm_sigma
         self.normalisation, self.max_orn_rate = normalisation, max_orn_rate
         self.sparsity = sparsity
+        self.fan_in = default_fan_in(self.n_types) if fan_in is None else int(fan_in)
         # each expansion cell samples a few glomeruli at random (binary weights)
         W = np.zeros((n_expansion, self.n_types))
         for i in range(n_expansion):
-            W[i, self.rng.choice(self.n_types, size=min(fan_in, self.n_types), replace=False)] = 1.0
+            W[i, self.rng.choice(self.n_types, size=min(self.fan_in, self.n_types), replace=False)] = 1.0
         self.W = W
         self.adapt_state = np.zeros(self.n_types)
 
