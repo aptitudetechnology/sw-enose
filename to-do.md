@@ -148,7 +148,7 @@ comparison.
 
 **Work:**
 
-- [ ] Package the comparison: `demo_reference.py` reproducing both tables above, tests for
+- [x] (done in 8312e92) Package the comparison: `demo_reference.py` reproducing both tables above, tests for
   `reference_models.py` (at minimum that Raman Eq. 6 reduces to L1 normalisation and that the Kenyon
   layer keeps exactly the top fraction), then commit.
 - [ ] Separate the remaining Kenyon-layer effect: sweep connection probability (fan-in distribution)
@@ -193,6 +193,6 @@ comparison.
 - [ ] Revisit the air-to-mucus step. Scott 2014 and Kurtz 2004 show mucus takes up lipophilic
   odorants more than water does, by about tenfold at log P 3 (extrapolated). This matters most for
   C8–C10.
-- [ ] Decide whether to commit `reports/` and `research_notes/`, which are currently untracked.
+- [x] `reports/` and `research_notes/` committed in 8312e92.
 - [ ] Read the 2025 Dennler et al. neuromorphic machine-olfaction review in full, the largest gap in
   the novelty search.

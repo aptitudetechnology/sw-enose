@@ -67,3 +67,34 @@ def test_swenose_olsen_stage_reaches_the_recorded_dm4_magnitude():
     smoothed = np.convolve(pn, np.ones(50) / 50, mode="same")
     assert 120 < smoothed.max() < 165
     assert smoothed.max() > 1.8 * np.convolve(r["pn"][0, :, k], np.ones(50) / 50, mode="same").max()
+
+
+def test_sweep_equals_running_each_configuration_separately():
+    from sw_enose.lazar_al import sweep
+    rng = np.random.default_rng(0)
+    stim = rng.uniform(0, 200, (2, 3000))
+    aff = rng.uniform(1e-5, 2e-3, 5)
+    sets = [{}, {"postiln-to-pn": {"gmax": 300.0}}, {"osn_axt": {"k": 3e5}, "posteln-to-pn": {"gmax": 5.0}}]
+    otps = [{}, {"kappa": 5000.0}, {}]
+    batched = sweep(stim, aff, 1e-4, sets, otps, record_every=10)
+    for c, (ps, ot) in enumerate(zip(sets, otps)):
+        alone = simulate(stim, aff, 1e-4, record_every=10, params=ps, otp=ot)
+        for key in ("osn", "pn"):
+            assert np.allclose(batched[key][c], alone[key], rtol=1e-12, atol=1e-12), (c, key)
+
+
+def test_recording_one_receptor_matches_the_full_recording():
+    stim = np.full((1, 2000), 50.0)
+    aff = np.array([1e-5, 2e-3, 5e-4])
+    full = simulate(stim, aff, 1e-4, record_every=10)
+    one = simulate(stim, aff, 1e-4, record_every=10, keys=("pn",), receptor=1)
+    assert set(one) == {"pn"} and one["pn"].shape == full["pn"].shape[:2]
+    assert np.allclose(one["pn"], full["pn"][:, :, 1])
+
+
+def test_bad_parameter_shapes_and_names_are_refused():
+    stim = np.zeros((2, 100))
+    with pytest.raises(ValueError):
+        simulate(stim, np.ones(3) * 1e-4, 1e-4, params={"osn_axt": {"k": np.ones(3)}})
+    with pytest.raises(KeyError):
+        simulate(stim, np.ones(3) * 1e-4, 1e-4, params={"no-such-block": {"k": 1.0}})
