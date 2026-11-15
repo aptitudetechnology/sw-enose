@@ -5,3 +5,4 @@ __pycache__/
 .pytest_cache/
 data/olsen2010/*.xml
 lean/
+data/lazar2022/repo/

@@ -52,6 +52,10 @@ real breath, water or health.** No output of this code is evidence about a perso
   and `restrict_to_tested` so a result can state what measurement it rests on.
 - `sw_enose/uncertainty.py`: does a conclusion survive what we don't know? Efficacy redrawing from
   the measured spread, stage-parameter sweeps, and a seed-to-seed noise floor to judge them against.
+- `sw_enose/reference_models.py`: reimplementations of Raman & Gutierrez-Osuna 2006 (shunting
+  normalisation) and Muezzinoglu et al. 2008 (antennal lobe + Kenyon layer), for comparison.
+- `sw_enose/lazar_al.py`: NumPy port of the Lazar, Liu & Yeh fly antennal-lobe circuit (BSD-3),
+  checked against the original's saved output and run against real Or59b/DM4 recordings.
 - `sw_enose/pipeline.py`: a plain (non-biomimetic) baseline pipeline, kept for comparison.
 - `sw_enose/data.py`: parameter loading with mandatory provenance.
 - `demo.py`: a worked example on synthetic odorants.
@@ -256,6 +260,26 @@ recognition on the easy four-smell panel was a perfect 1.00. Only comparing agai
 possible readout of the same input exposed it. Note also that "ceiling" is the best of the readouts
 tried, so it is a **lower bound** — a cleverer classifier would make the real gap larger, never
 smaller.
+
+## Comparison with prior systems (15 Nov 2026)
+
+`reports/Biomimetic software nose prior art.md` found no published system with the full sw-enose
+chain, but prior art for every stage. None of the closest papers released code, so
+`demo_reference.py` reimplements two of them from the papers, behind the same receptor front end:
+
+- **Stage 4:** Raman 2006's shunting inhibition and the Olsen 2010 equation agree within about
+  0.01 and both reach the ceiling. The Olsen form gives no advantage here.
+- **Stage 5 is now sw-enose's main loss.** Muezzinoglu 2008's Kenyon layer scores 0.97 / 0.94 /
+  0.83 at noise 0.1 / 0.4 / 0.8, against sw-enose's 0.91 / 0.75 / 0.55. Ablation puts most of the
+  gap on the active fraction: 5% (the fly's figure, from about 50 glomeruli) against 20%. With
+  8 glomeruli and fan-in 2 a 5% code is mostly ties. Tuned and scored on one task: not held out.
+
+`demo_lazar.py` runs the Lazar antennal-lobe circuit, ported to NumPy, against recorded fly
+neurons, the first recorded data anywhere in this repo. The port reproduces the original
+notebook's saved output to plot precision (`tests/test_lazar_al.py`). Its receptor stage tracks the
+Or59b recordings in shape (r 0.88–0.95), but its projection-neuron stage does not match DM4
+(r 0.40–0.61; it peaks near 65 Hz against 150–190 Hz recorded). The data file also stores one PN
+recording three times. See `to-do.md`.
 
 ## Not done yet
 
