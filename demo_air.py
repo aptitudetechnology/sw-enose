@@ -1,84 +1,110 @@
 """Air to mucus: what would have to be in the air for a measured EC50 to be reached?
 
 This joins the two halves of the project that did not meet before: receptor EC50s measured in
-MICROMOLAR IN LIQUID (M2OR, real) and odorant concentrations in AIR in ppb (what any real
-instrument reports). MODELLED throughout.
+MICROMOLAR IN LIQUID (M2OR) and odorant concentrations in AIR in ppb (what any real instrument
+reports). Both halves are now measured; the chain between them is MODELLED.
 
-The Henry's law constant of each compound is a measurement this repo does not have yet, so instead
-of inventing one per odorant the demo sweeps a band covering the range volatile organics occupy.
-The conclusion below holds across the whole band, which is why it is worth printing.
+CORRECTION. An earlier version of this demo had no real Henry's law constants and swept an invented
+band of 1e-4 to 1e0 mol/(m^3 Pa), concluding that reaching a measured EC50 always needs ppm in air.
+That was wrong. The real constants for the carboxylic acids are 10 to 50 mol/(m^3 Pa), above the top
+of that band, and their EC50s are reached at tens of ppb. The invented band was the error, not the
+measurements. What follows uses data/henry/sander_v5_subset.csv.
 """
 import os
 import numpy as np
 
 from sw_enose import BiomimeticNose
-from sw_enose.air import (AIR_TO_MUCUS, HenryTable, T_BODY, air_molar, air_to_liquid,
-                          concentration_vector_from_air, ppb_for_liquid)
+from sw_enose.air import (AIR_TO_MUCUS, T_BODY, T_REF, air_molar, air_to_liquid,
+                          concentration_vector_from_air, load_henry_csv, ppb_for_liquid,
+                          ppb_for_liquid_at)
 from sw_enose.m2or import build_params
 
-CSV = os.path.join(os.path.dirname(__file__), "data/m2or/repo/M2OR_20230428.csv")
+HERE = os.path.dirname(__file__)
+CSV = os.path.join(HERE, "data/m2or/repo/M2OR_20230428.csv")
+HENRY = os.path.join(HERE, "data/henry/sander_v5_subset.csv")
 ODOURS = ("butanoic acid", "isovaleric acid", "Dimethyl trisulfide", "Octanethiol",
           "cinnamaldehyde", "L-Carvone")
-# mol/(m^3 Pa): poorly soluble and volatile, middling, very soluble. Bracket, not chemistry.
-BAND = (1e-4, 1e-2, 1e0)
 
 p = build_params(CSV, ODOURS)
-print("receptors:", p.provenance, "\n")
+h = load_henry_csv(HENRY, "measured:Sander, Compilation of Henry's law constants v5.0.0, "
+                          "Atmos. Chem. Phys. 23, 10901-12440 (2023), doi:10.5194/acp-23-10901-2023; "
+                          "transcribed per compound, see data/henry/README.md")
+print("receptors:", p.provenance)
+print("partitioning:", h.provenance, "\n")
 
-print("What the conversion leaves out (every number below is therefore a ceiling):")
+print("What the conversion still leaves out (so every number below is a ceiling on the liquid")
+print("concentration, and a floor on the air concentration needed):")
 for key, (what, status) in AIR_TO_MUCUS.items():
     print(f"  {key}: {what}\n      {status}")
 
-print(f"\nThe gas-law step alone, at {T_BODY:.2f} K: 1 ppb of anything is "
-      f"{air_molar(1.0):.3g} uM of air. Receptor EC50s here are tens of uM, in liquid.")
+print(f"\nThe gas-law step alone, at {T_BODY:.2f} K: 1 ppb of anything is {air_molar(1.0):.3g} uM of air.")
 
-print("\nAir concentration needed to put the median measured EC50 at the receptor")
-print("(equilibrium, mucus assumed to behave as water; FLOOR, the real figure would be higher):\n")
-print(f"  {'odorant':22s} {'agonists':>8s} {'median EC50':>12s} " +
-      " ".join(f"{'H=' + format(h, '.0e'):>14s}" for h in BAND))
+print("\nAir concentration needed to put the median measured EC50 at the receptor, at body")
+print("temperature, assuming mucus behaves as water. The bracket spans every value the")
+print("compilation lists for that compound, estimates included.\n")
+print(f"  {'odorant':22s} {'H^cp':>8s} {'EC50':>9s} {'ppb needed':>12s}   {'bracket from the published spread':34s}")
+
+
+def fmt(ppb):
+    if ppb >= 1e6:
+        return f"{ppb / 1e6:,.1f} parts per thousand"
+    return f"{ppb / 1e3:,.1f} ppm" if ppb >= 1e3 else f"{ppb:,.0f} ppb"
+
+
+rows = {}
 for j, o in enumerate(ODOURS):
-    ec = p.affinity[p.efficacy[:, j] > 0, j]
-    med = float(np.median(ec))
-    cells = []
-    for h in BAND:
-        t = HenryTable((o,), np.array([h]), "synthetic:volatility bracket")
-        ppb = ppb_for_liquid(t, o, med)
-        cells.append(f"{ppb / 1e3:,.0f} ppm" if ppb >= 1e3 else f"{ppb:,.2f} ppb")
-    print(f"  {o:22s} {len(ec):8d} {med:9.1f} uM " + " ".join(f"{c:>14s}" for c in cells))
+    ec = float(np.median(p.affinity[p.efficacy[:, j] > 0, j]))
+    lo_h, mid_h, hi_h = h.bracket(o, temp_k=T_BODY)
+    mid = ppb_for_liquid(h, o, ec, temp_k=T_BODY)
+    # a bigger Henry constant means more dissolves, so it needs LESS in the air: the sides swap
+    band = ""
+    if np.isfinite(lo_h) and np.isfinite(hi_h):
+        band = f"{fmt(ppb_for_liquid_at(hi_h, ec))} to {fmt(ppb_for_liquid_at(lo_h, ec))}"
+    else:
+        band = "no range published (single estimate)"
+    rows[o] = (ec, mid)
+    print(f"  {o:22s} {mid_h:8.3g} {ec:6.1f}uM {fmt(mid):>12s}   {band:34s}")
 
-print("\nSo: unless an odorant is at the very soluble end, reaching a concentration these assays")
-print("call half-maximal needs air concentrations in the ppm range or above. Breath traces are")
-print("usually low ppb. The gap is the finding; it comes from the measured EC50s and the gas law,")
-print("not from the invented Henry constants, since it survives the whole band.")
+print("\nThe compounds split in two, and the split follows water solubility exactly as the physics")
+print("says it must:")
+soluble = [o for o, (_, ppb) in rows.items() if ppb < 1e3]
+stubborn = [o for o, (_, ppb) in rows.items() if ppb >= 1e3]
+print(f"  reachable at ppb:  {', '.join(soluble)}")
+print(f"  needs ppm or more: {', '.join(stubborn)}")
+print("  And note the data quality: two of the three that need ppm (octanethiol, carvone) have no")
+print("  measured Henry constant at all, only estimates. Dimethyl trisulfide's is measured, so that")
+print("  one is a real discrepancy; the other two may partly be artefacts of an estimated constant.")
 
-print("\nA breath-like mixture at low ppb, pushed through the nose anyway:")
-table = HenryTable(ODOURS, np.full(len(ODOURS), 1e-2), "synthetic:one middling constant for all")
+print(f"\nTemperature matters where a coefficient exists. Butanoic acid, 298.15 K vs {T_BODY:.2f} K:")
+for t in (T_REF, T_BODY):
+    print(f"  {t:7.2f} K: H^cp {h.h_cp_at('butanoic acid', t):7.2f}, "
+          f"EC50 reached at {fmt(ppb_for_liquid(h, 'butanoic acid', rows['butanoic acid'][0], temp_k=t))}")
+print("  Warmer means less soluble, so a warm nose needs more in the air. Four of the six compounds")
+print("  have no published coefficient, so for them this correction is silently skipped.")
+
+print("\nA breath-like mixture at low ppb, through the whole nose:")
 nose = BiomimeticNose(p, neuron_noise=0.0, seed=5)
 breath_ppb = {"butanoic acid": 20.0, "isovaleric acid": 10.0, "Octanethiol": 2.0}
-liquid = air_to_liquid(table, breath_ppb, temp_k=T_BODY)
+liquid = air_to_liquid(h, breath_ppb, temp_k=T_BODY)
 for o, ppb in breath_ppb.items():
-    print(f"  {o:22s} {ppb:6.1f} ppb -> {liquid[o]:.3e} uM in liquid")
-v = concentration_vector_from_air(p, table, breath_ppb, temp_k=T_BODY)
+    print(f"  {o:22s} {ppb:6.1f} ppb -> {liquid[o]:10.4g} uM in liquid")
+v = concentration_vector_from_air(p, h, breath_ppb, temp_k=T_BODY)
 act = nose.receptor_activation(v)
-print(f"  peak receptor activation {act.max():.3e} of 1.0 across {len(act)} receptors "
-      f"-- indistinguishable from nothing")
-print(f"  for comparison, the same odorants at the liquid concentrations demo_mixture.py uses: "
-      f"{nose.receptor_activation(np.where(v > 0, 100.0, 0.0)).max():.3f}")
+print(f"  peak receptor activation {act.max():.3f} of 1.0 across {len(act)} receptors, "
+      f"{int((act > 0.01).sum())} above 1%")
+print("  With real constants the acids do drive the array at breath-like ppb. The earlier version of")
+print("  this demo reported 2e-3 here, purely because its invented constants were too small.")
 
 print("""
-What that does and does not mean. It is NOT evidence that a nose cannot smell these gases at ppb:
-people plainly do smell some odorants at very low air concentrations. It means the chain assembled
-here -- cultured-cell EC50s, plus equilibrium air-water partitioning -- does not reach the receptor
-sensitivity real olfaction shows. Something in it is wrong or missing: candidates are the assays
-reporting far higher EC50s than receptors in a nose need, transport by odorant-binding proteins,
-accumulation in mucus away from equilibrium, and amplification in the stages after binding. Which
-of those it is, this repo cannot say. Until it can, the nose should not be fed real ppb figures
-and expected to behave like a nose.""")
+Where that leaves the sensitivity question. For water-soluble odorants there is no longer a gap to
+explain: equilibrium partitioning plus cultured-cell EC50s land in the tens of ppb, which is the
+range noses work in. For the poorly soluble ones -- the thiol above all -- the chain still asks for
+ppm, and that is where to keep looking: at odorant-binding proteins, at accumulation away from
+equilibrium, and at the fact that two of those three Henry constants are estimates rather than
+measurements. Getting a measured constant for octanethiol would do more than any modelling here.""")
 
-print("\nAn odorant with no Henry constant is refused, not guessed:")
-partial = HenryTable(("butanoic acid", "Octanethiol"), np.array([1e-2, np.nan]),
-                     "synthetic:one value deliberately absent")
+print("\nAn odorant the table does not cover is still refused, not guessed:")
 try:
-    air_to_liquid(partial, {"Octanethiol": 5.0})
+    air_to_liquid(h, {"hydrogen sulfide": 5.0})
 except KeyError as e:
     print("  ", e.args[0])

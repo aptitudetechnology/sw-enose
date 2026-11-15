@@ -77,19 +77,39 @@ class HenryTable:
     temp_dep: np.ndarray = None
     temp_ref_k: float = T_REF
     notes: tuple = ()
+    h_cp_low: np.ndarray = None    # lowest and highest value any source in the compilation gives,
+    h_cp_high: np.ndarray = None   # so the spread between labs stays visible. NaN where unknown.
 
     def __post_init__(self):
         if not (self.provenance.startswith("synthetic:") or self.provenance.startswith("measured:")):
             raise ValueError("provenance must start with 'synthetic:' or 'measured:'")
         if len(self.odorants) != len(self.h_cp):
             raise ValueError("one Henry constant per odorant name")
-        if self.temp_dep is not None and len(self.temp_dep) != len(self.h_cp):
-            raise ValueError("one temperature coefficient per odorant name")
-        finite = np.isfinite(self.h_cp)
-        if np.any(np.asarray(self.h_cp)[finite] <= 0):
-            raise ValueError("Henry constants must be positive")
+        for name in ("temp_dep", "h_cp_low", "h_cp_high"):
+            v = getattr(self, name)
+            if v is not None and len(v) != len(self.h_cp):
+                raise ValueError(f"one {name} value per odorant name")
+        for name in ("h_cp", "h_cp_low", "h_cp_high"):
+            v = getattr(self, name)
+            if v is None:
+                continue
+            v = np.asarray(v, float)
+            if np.any(v[np.isfinite(v)] <= 0):
+                raise ValueError(f"{name}: Henry constants must be positive")
         if self.temp_ref_k <= 0:
             raise ValueError("reference temperature must be positive")
+
+    def bracket(self, name, temp_k=T_BODY):
+        """(low, chosen, high) Henry constant at `temp_k`. low/high are NaN where the source gives
+        only one value; the temperature correction is applied to all three alike."""
+        j = self.index(name)
+        chosen = self.h_cp_at(name, temp_k)
+        scale = chosen / float(self.h_cp[j])
+        def side(arr):
+            if arr is None:
+                return float("nan")
+            return float(arr[j]) * scale
+        return side(self.h_cp_low), chosen, side(self.h_cp_high)
 
     @property
     def modelled(self) -> bool:
@@ -184,6 +204,20 @@ def air_to_liquid(table: HenryTable, mixture_ppb: dict, temp_k=T_BODY, pressure_
     return out
 
 
+def ppb_for_liquid_at(h_cp, target_um, pressure_pa=P_STANDARD, mucus_water_ratio=1.0,
+                      uptake_fraction=1.0) -> float:
+    """As `ppb_for_liquid`, but for a Henry constant given directly, already at the temperature of
+    interest. Useful for sweeping the spread a compilation reports across labs."""
+    if target_um < 0:
+        raise ValueError("target_um must be >= 0")
+    if not 0 < uptake_fraction <= 1 or mucus_water_ratio <= 0:
+        raise ValueError("uptake_fraction must be in (0, 1] and mucus_water_ratio positive")
+    if not np.isfinite(h_cp) or h_cp <= 0:
+        raise ValueError("h_cp must be finite and positive")
+    c_aq = target_um / (UM_PER_MOL_PER_M3 * mucus_water_ratio * uptake_fraction)   # mol/m^3
+    return c_aq / (h_cp * 1e-9 * pressure_pa)
+
+
 def ppb_for_liquid(table: HenryTable, name, target_um, temp_k=T_BODY, pressure_pa=P_STANDARD,
                    mucus_water_ratio=1.0, uptake_fraction=1.0) -> float:
     """The air concentration in ppb that would put `target_um` uM of `name` at the receptor.
@@ -192,13 +226,8 @@ def ppb_for_liquid(table: HenryTable, name, target_um, temp_k=T_BODY, pressure_p
     to be in the air for the receptor to see its half-maximal concentration. Because `air_to_liquid`
     is a ceiling, this is a FLOOR: the real air concentration needed would be higher.
     """
-    if target_um < 0:
-        raise ValueError("target_um must be >= 0")
-    if not 0 < uptake_fraction <= 1 or mucus_water_ratio <= 0:
-        raise ValueError("uptake_fraction must be in (0, 1] and mucus_water_ratio positive")
-    h = table.h_cp_at(name, temp_k)
-    c_aq = target_um / (UM_PER_MOL_PER_M3 * mucus_water_ratio * uptake_fraction)   # mol/m^3
-    return c_aq / (h * 1e-9 * pressure_pa)
+    return ppb_for_liquid_at(table.h_cp_at(name, temp_k), target_um, pressure_pa,
+                             mucus_water_ratio, uptake_fraction)
 
 
 def concentration_vector_from_air(params, table: HenryTable, mixture_ppb: dict, **kw):
@@ -224,18 +253,28 @@ def synthetic_henry_table(odorants=("A", "B", "C", "D"), seed=0) -> HenryTable:
                       temp_dep=np.full(len(odorants), 5000.0))
 
 
-HENRY_CSV_COLUMNS = ("odorant", "h_cp_mol_per_m3_Pa", "temp_dep_K", "source")
+HENRY_CSV_COLUMNS = ("odorant", "h_cp_mol_per_m3_Pa", "temp_dep_K", "h_cp_low", "h_cp_high", "source")
+
+# Sign convention of the temperature coefficient, written down because it is easy to get backwards
+# and the source does not state it. henrys-law.org heads the column "d ln Hs cp / d (1/T)" with no
+# minus sign and prints positive values (butanoic acid 7100 K). Used directly as the coefficient in
+# `h_cp_at`, a positive value makes a compound LESS soluble as it warms, which is the right direction
+# for an exothermic dissolution, as these are. If a future source heads the column "-d ln H / d(1/T)",
+# negate its values before putting them in the file.
+TEMP_DEP_CONVENTION = "d ln(H^cp) / d(1/T) in K, positive = less soluble when warmer"
 
 
 def load_henry_csv(path, provenance, temp_ref_k=T_REF) -> HenryTable:
     """Load a curated CSV of Henry constants. `provenance` is mandatory and must name the source.
 
-    Columns: odorant, h_cp_mol_per_m3_Pa, and optionally temp_dep_K and source. A blank constant
-    means the source has no value for that odorant, which is kept as NaN so the nose refuses it
-    instead of guessing. Use the `h_cp_from_*` helpers to convert published units before writing
-    the file, and record in `source` which form each value came from.
+    Columns: odorant, h_cp_mol_per_m3_Pa, and optionally temp_dep_K, h_cp_low, h_cp_high and source.
+    A blank constant means the source has no value for that odorant, which is kept as NaN so the
+    nose refuses it instead of guessing. Use the `h_cp_from_*` helpers to convert published units
+    before writing the file, and record in `source` which form each value came from. The temperature
+    coefficient must follow TEMP_DEP_CONVENTION.
     """
-    names, h, dep, notes = [], [], [], []
+    cols = {k: [] for k in ("h_cp_mol_per_m3_Pa", "temp_dep_K", "h_cp_low", "h_cp_high")}
+    names, notes = [], []
     with open(path, encoding="utf-8") as f:
         reader = csv.DictReader(f)
         if reader.fieldnames is None or "odorant" not in reader.fieldnames:
@@ -244,15 +283,16 @@ def load_henry_csv(path, provenance, temp_ref_k=T_REF) -> HenryTable:
             raise ValueError(f"{path}: no 'h_cp_mol_per_m3_Pa' column; refusing to interpret the numbers")
         for row in reader:
             name = (row["odorant"] or "").strip()
-            if not name:
+            if not name or name.startswith("#"):
                 continue
-            raw = (row.get("h_cp_mol_per_m3_Pa") or "").strip()
-            h.append(float(raw) if raw else float("nan"))
-            d = (row.get("temp_dep_K") or "").strip()
-            dep.append(float(d) if d else 0.0)
+            for k in cols:
+                raw = (row.get(k) or "").strip()
+                cols[k].append(float(raw) if raw else (0.0 if k == "temp_dep_K" else float("nan")))
             names.append(name)
             notes.append((row.get("source") or "").strip())
     if not names:
         raise ValueError(f"{path}: no odorants found")
-    return HenryTable(tuple(names), np.array(h, float), provenance,
-                      temp_dep=np.array(dep, float), temp_ref_k=temp_ref_k, notes=tuple(notes))
+    return HenryTable(tuple(names), np.array(cols["h_cp_mol_per_m3_Pa"], float), provenance,
+                      temp_dep=np.array(cols["temp_dep_K"], float), temp_ref_k=temp_ref_k,
+                      notes=tuple(notes), h_cp_low=np.array(cols["h_cp_low"], float),
+                      h_cp_high=np.array(cols["h_cp_high"], float))

@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 import pytest
 
@@ -5,7 +7,7 @@ from sw_enose import synthetic_params
 from sw_enose.air import (AIR_TO_MUCUS, HenryTable, MissingHenryConstant, P_STANDARD, R_GAS, T_REF,
                           air_molar, air_to_liquid, concentration_vector_from_air,
                           h_cp_from_atm_m3_per_mol, h_cp_from_dimensionless, h_cp_from_m_per_atm,
-                          load_henry_csv, ppb_for_liquid, synthetic_henry_table)
+                          load_henry_csv, ppb_for_liquid, ppb_for_liquid_at, synthetic_henry_table)
 from sw_enose.mixture import UnknownOdorant
 
 
@@ -167,6 +169,69 @@ def test_csv_blank_constant_is_kept_as_missing(tmp_path):
     f.write_text("odorant,h_cp_mol_per_m3_Pa\nx,1e-2\ny,\n", encoding="utf-8")
     t = load_henry_csv(f, "measured:partial table")
     assert t.missing == ("y",)
+
+
+# --- the published spread ---
+
+def test_bracket_carries_the_spread_and_the_temperature_correction():
+    t = HenryTable(("x",), np.array([1e-2]), "synthetic:spread", temp_dep=np.array([5000.0]),
+                   h_cp_low=np.array([1e-3]), h_cp_high=np.array([1e-1]))
+    lo, mid, hi = t.bracket("x", temp_k=T_REF)
+    assert (lo, mid, hi) == pytest.approx((1e-3, 1e-2, 1e-1))
+    # all three scale by the same factor when the temperature moves
+    wlo, wmid, whi = t.bracket("x", temp_k=310.15)
+    assert wmid < mid
+    assert wlo / lo == pytest.approx(wmid / mid) == pytest.approx(whi / hi)
+
+
+def test_bracket_is_nan_where_no_range_was_published():
+    t = HenryTable(("x",), np.array([1e-2]), "synthetic:single value")
+    lo, mid, hi = t.bracket("x")
+    assert mid == pytest.approx(1e-2) and np.isnan(lo) and np.isnan(hi)
+
+
+def test_a_bigger_henry_constant_needs_less_in_the_air():
+    assert ppb_for_liquid_at(1e-1, 10.0) < ppb_for_liquid_at(1e-3, 10.0)
+    assert ppb_for_liquid_at(1e-2, 10.0) == pytest.approx(10 * ppb_for_liquid_at(1e-1, 10.0))
+    for bad in (0.0, -1.0, float("nan")):
+        with pytest.raises(ValueError):
+            ppb_for_liquid_at(bad, 10.0)
+
+
+# --- the transcribed Sander subset that ships with the repo ---
+
+HENRY_CSV = Path(__file__).resolve().parent.parent / "data" / "henry" / "sander_v5_subset.csv"
+
+
+def test_shipped_henry_subset_loads_with_every_value_sourced():
+    t = load_henry_csv(HENRY_CSV, "measured:Sander v5.0.0 (2023), transcribed")
+    assert not t.modelled
+    assert t.missing == ()                     # every odorant in the file has a value
+    assert all(t.notes), "every row must carry a source note"
+    # the acids are far more water-soluble than the thiol, which is the whole point of the file
+    assert t.h_cp_at("butanoic acid", T_REF) > 1000 * t.h_cp_at("Octanethiol", T_REF)
+
+
+def test_shipped_subset_covers_the_demo_odorants_and_brackets_what_it_can():
+    t = load_henry_csv(HENRY_CSV, "measured:Sander v5.0.0 (2023), transcribed")
+    for o in ("butanoic acid", "isovaleric acid", "Dimethyl trisulfide", "Octanethiol",
+              "cinnamaldehyde", "L-Carvone"):
+        lo, mid, hi = t.bracket(o)
+        assert mid > 0
+        if np.isfinite(lo):
+            assert lo <= mid <= hi
+    # carvone is the one single-estimate row, so it has no published range
+    assert np.isnan(t.bracket("L-Carvone")[0])
+
+
+def test_shipped_subset_puts_the_acids_within_reach_at_ppb():
+    """The corrected finding, pinned: a measured EC50 for butanoic acid is reached at under 1 ppm.
+
+    An earlier version of this repo claimed ppm-and-above for every odorant, on invented constants.
+    """
+    t = load_henry_csv(HENRY_CSV, "measured:Sander v5.0.0 (2023), transcribed")
+    assert ppb_for_liquid(t, "butanoic acid", 100.0) < 1000.0
+    assert ppb_for_liquid(t, "Octanethiol", 92.7) > 1e5      # and the thiol is still far out of reach
 
 
 # --- the module must keep saying what it leaves out ---
