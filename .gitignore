@@ -1,0 +1,6 @@
+data/m2or/repo/
+data/singh2019/raw/
+data/singh2019/*.xml
+__pycache__/
+.pytest_cache/
+data/olsen2010/*.xml
