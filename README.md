@@ -272,14 +272,44 @@ chain, but prior art for every stage. None of the closest papers released code, 
 - **Stage 5 is now sw-enose's main loss.** Muezzinoglu 2008's Kenyon layer scores 0.97 / 0.94 /
   0.83 at noise 0.1 / 0.4 / 0.8, against sw-enose's 0.91 / 0.75 / 0.55. Ablation puts most of the
   gap on the active fraction: 5% (the fly's figure, from about 50 glomeruli) against 20%. With
-  8 glomeruli and fan-in 2 a 5% code is mostly ties. Tuned and scored on one task: not held out.
+  8 glomeruli and fan-in 2 a 5% code is mostly ties. **That did not survive a held-out test**
+  (`demo_heldout.py`). On two M2OR panels sharing no odorant with the acids, 20% was worse than
+  5% on one, and the winner there (50%) lost on the acids. By a rule fixed before running, the
+  default stays at 5%. The jumpy curves come from duplicate cells: 8 glomeruli at fan-in 2 allow
+  only 28 distinct wirings. The fix is to make cells differ, not to tune the fraction.
 
 `demo_lazar.py` runs the Lazar antennal-lobe circuit, ported to NumPy, against recorded fly
 neurons, the first recorded data anywhere in this repo. The port reproduces the original
 notebook's saved output to plot precision (`tests/test_lazar_al.py`). Its receptor stage tracks the
 Or59b recordings in shape (r 0.88–0.95), but its projection-neuron stage does not match DM4
 (r 0.40–0.61; it peaks near 65 Hz against 150–190 Hz recorded). The data file also stores one PN
-recording three times. See `to-do.md`.
+recording three times.
+
+**sw-enose's own stage 4 does better against the recordings than the published circuit.** The
+Olsen 2010 equation was fitted on fly ORN→PN data pooled over 24 receptor types, and this circuit
+has exactly 24, so it can take the OSN rates in Hz with nothing invented or fitted. It peaks at
+about 140 Hz against 148–191 Hz recorded (the published circuit reaches about 65 Hz) and
+correlates at mean r 0.57 against 0.47. That is one glomerulus and one odorant. Adaptation
+fitted on one recording improves the four held-out ones only modestly (r +0.01 to +0.09).
+
+## Human detection thresholds (15 Nov 2026)
+
+`demo_thresholds.py` asks whether the model's receptor activation at each acid's measured human
+detection threshold is roughly constant across the series, as a fixed detection criterion would
+predict. The only source found with analytically verified vapour concentrations (Cometto-Muñiz &
+Abraham 2010, PMC2964470) tested just C4, C6 and C8 from the panel; `data/thresholds/` records it
+plus a secondary compilation. Nothing measured was found for C7, C9 or C10.
+
+- C4 and C6, whose Henry constants are measured, sit at almost the same activation at threshold
+  (0.75% and 0.91% on the 8 fully-tested receptors, 0.08 log units apart). Two points: a weak
+  pass, not a result.
+- With C8 (estimated Henry constant) the spread is about 0.9–1.1 log units; the secondary set
+  scatters by about 1.9.
+- Detection sits at roughly 0.1–1% of maximal receptor activation, far below EC50.
+- **Not applied:** mucus-vs-water and acid-ionisation corrections. The search for the values they
+  need (log P, pKa, nasal mucus pH) was stopped by an automated safeguard; they still need sourcing.
+
+Verdict: underpowered and inconclusive. See `to-do.md`.
 
 ## Not done yet
 

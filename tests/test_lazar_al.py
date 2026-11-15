@@ -47,3 +47,23 @@ def test_port_reproduces_the_original_notebooks_saved_figure():
         sampled = r[key][0, ::1000]
         assert sampled.max() == pytest.approx(val, rel=0.03), key
         assert receptors[int(np.argmax(sampled.max(axis=0)))] == "59b", key
+
+
+@pytest.mark.skipif(not HAVE, reason="Lazar 2022 data not fetched; see demo_lazar.py")
+def test_swenose_olsen_stage_reaches_the_recorded_dm4_magnitude():
+    """sw-enose's stage 4, given the Lazar OSN rates in Hz and nothing fitted, peaks near 140 Hz on
+    recording 2 (recorded 148 Hz); the published example circuit peaks near 65 Hz."""
+    from sw_enose.bio import BiomimeticNose
+    from sw_enose.data import synthetic_params
+    rows = list(csv.reader(open(REPO / "estimated_affinity.csv")))
+    receptors = rows[0][1:]
+    aff = {r[0]: np.array(r[1:], float) for r in rows[1:]}
+    d = np.load(REPO / "staircase.npz", allow_pickle=False)
+    dt = float(d["t"][1] - d["t"][0])
+    k = receptors.index("59b")
+    r = simulate(d["pn_input"][2:3], aff["acetone"], dt, record_every=10)
+    nose = BiomimeticNose(synthetic_params(n_receptors=24, odorants=("A",)), max_orn_rate=1.0)
+    pn = np.array([nose.normalise(g)[k] for g in r["osn"][0]])
+    smoothed = np.convolve(pn, np.ones(50) / 50, mode="same")
+    assert 120 < smoothed.max() < 165
+    assert smoothed.max() > 1.8 * np.convolve(r["pn"][0, :, k], np.ones(50) / 50, mode="same").max()

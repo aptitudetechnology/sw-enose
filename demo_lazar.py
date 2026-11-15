@@ -58,6 +58,51 @@ for name, model, data, rows_ in (("Or59b OSN", r["osn"][:7, :, k], block(d["osn_
               f"     {m[i].mean():7.1f}    {y[i].mean():7.1f}     {m[i].max():7.1f}    {y[i].max():7.1f}")
     print()
 
+# ---------------------------------------------------------------- sw-enose's own stages
+# Olsen 2010's equation was fitted on fly ORN -> PN data pooled over 24 receptor types, and this
+# circuit has exactly 24. So sw-enose's stage 4 can take the Lazar OSN rates in Hz unchanged:
+# max_orn_rate=1 makes the activation a rate, and 24 types make the pool rescaling the identity.
+from sw_enose.bio import BiomimeticNose
+from sw_enose.data import synthetic_params
+import itertools
+
+U = [0, 1, 2, 3, 4]                                  # unique PN recordings
+osn = r["osn"][7:][U]                                # OSN rates for the PN experiments' stimuli
+data = block(d["pn_output"][U])
+n = min(data.shape[1], osn.shape[1])
+y = [smooth(data[i:i + 1, :n])[0] for i in range(5)]
+
+
+def swenose_pn(i, tau=1.0, rec=1.0, strength=0.0):
+    nose = BiomimeticNose(synthetic_params(n_receptors=24, odorants=("A",)), max_orn_rate=1.0,
+                          neuron_noise=0.0, adapt_tau=tau, recover_tau=rec, adapt_strength=strength)
+    out = np.empty(n)
+    for s_ in range(n):
+        g = osn[i, s_]
+        if strength > 0:
+            g = nose.adapt(g, dt=dt * RECORD_EVERY)   # stage 3, time constants in seconds
+        out[s_] = nose.normalise(g)[k]               # stage 4, Olsen
+    return smooth(out[None])[0]
+
+
+rr = lambda m, i: float(np.corrcoef(m, y[i])[0, 1])
+lazar_pn = [smooth(r["pn"][7:][i:i + 1, :n, k])[0] for i in U]
+olsen = [swenose_pn(i) for i in range(5)]
+print("DM4 PN: sw-enose stage 4 (Olsen 2010, fly constants, nothing fitted) vs Lazar's PN stage")
+print("   rec   Lazar r  peak   |  sw-enose r  peak   |  recorded peak")
+for i in range(5):
+    print(f"   {U[i]}     {rr(lazar_pn[i], i):5.2f}  {lazar_pn[i].max():5.0f}   |  {rr(olsen[i], i):6.2f}    "
+          f"{olsen[i].max():5.0f}  |  {y[i].max():6.0f}")
+
+grid = list(itertools.product((0.1, 0.3, 1.0, 3.0), (0.1, 0.3, 1.0, 3.0), (0.2, 0.4, 0.6, 0.8)))
+fit = max(grid, key=lambda g: rr(swenose_pn(0, *g), 0))
+print(f"\nAdding stage 3 (adaptation): constants fitted on recording 0 only -> tau {fit[0]} s, "
+      f"recovery {fit[1]} s, strength {fit[2]}; both time constants landed on the grid's edges.")
+for i in range(1, 5):
+    a = swenose_pn(i, *fit)
+    print(f"   held-out rec {U[i]}: Olsen only r {rr(olsen[i], i):.2f} -> with adaptation r {rr(a, i):.2f}")
+print()
+
 print("""What this shows.
  - The receptor-neuron stage tracks the recordings closely in shape (r about 0.9 in every
    recording) but under-predicts the rate in recordings 3-5 by about half. Its transduction
@@ -67,5 +112,9 @@ print("""What this shows.
    the recordings peak at 150-190 Hz. The port reproduces the original notebook's own output to
    plot precision, so this is the example circuit as published, not a porting error. The paper
    explores many circuit configurations; this notebook is one of them.
- - For sw-enose: this is a recorded benchmark that its own adaptation and normalisation stages
-   (stages 3 and 4) could be run against, which has not been done yet.""")
+ - sw-enose's stage 4, the Olsen 2010 equation with its published fly constants and nothing fitted,
+   reproduces the DM4 firing magnitude (about 140 Hz against 148-191 Hz recorded, where the
+   published circuit reaches about 65 Hz) and tracks the time course somewhat better (mean r
+   0.57 against 0.47). The Olsen constants came from other glomeruli and odours, so this is an
+   independent check, but on one glomerulus and one odorant.
+ - Adaptation fitted on one recording helps the four held-out ones only modestly.""")

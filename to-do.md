@@ -136,9 +136,13 @@ comparison.
 
 **Decisions needed:**
 
-- [ ] **Stage 5 active fraction.** Keep the fly's 5%, adopt a fixed 20%, or scale it with array
-  size the way `fan_in` now scales? If it changes, choose it on a held-out panel or task and not
-  this one. Every number in `README.md` and the demos that depends on stage 5 would need re-running.
+- [x] **Stage 5 active fraction: decided, stays at 5%** (`demo_heldout.py`). Rule fixed before
+  running: change only if one candidate wins the mean across noise on the held-out panels and
+  beats 5% on the acids. 20% won the acids (0.841 vs 0.772) but lost held-out A (0.661 vs 0.758);
+  50% won both held-out panels but lost the acids (0.744). Nothing qualified. The curves are jumpy
+  because 8 glomeruli at fan-in 2 give only 28 distinct wirings, so cells come in duplicate groups.
+- [ ] Make Kenyon cells actually differ on small arrays: graded (e.g. Gaussian or random-strength)
+  weights instead of binary ones, or Muezzinoglu-style Bernoulli fan-in. Test on the held-out panels.
 - [ ] **Stage 4.** Keep Olsen (literature-grounded, fly constants) or note that Raman's simpler
   form performs the same? This is documentation only unless something else changes.
 
@@ -165,9 +169,11 @@ comparison.
   - **The DM4 projection neuron does not fit:** r = 0.40–0.61, with the model peaking near 65 Hz
     against 150–190 Hz recorded. Because the port matches the original's output, this belongs to
     the published example configuration, not to the port.
-- [ ] Run sw-enose's own stages 3 (adaptation) and 4 (normalisation) against these Or59b/DM4
-  recordings. This is the first recorded-data benchmark available to it. It needs a time-varying
-  input path, since sw-enose currently has none.
+- [x] **Ran sw-enose's stages 3 and 4 against the DM4 recordings** (in `demo_lazar.py`). Stage 4
+  (Olsen, fly constants, nothing fitted) peaks at about 140 Hz against 148–191 Hz recorded, where
+  Lazar's circuit reaches about 65 Hz, and has mean r 0.57 against 0.47. Adaptation fitted on one
+  recording improved the four held-out recordings by r +0.01 to +0.09. Both fitted time constants
+  sat on the grid edges (3 s and 0.1 s), so a wider grid is worth trying.
 - [ ] Ask the Lazar group which circuit configuration in the paper reproduces the DM4 peaks.
 - [ ] Email the Lazar 2024 and Scott 2014 corresponding authors asking for code.
 - [ ] Give Muezzinoglu's antennal lobe a fair test: it needs time-varying input (sensor-like
@@ -175,9 +181,15 @@ comparison.
 
 **Still open from earlier:**
 
-- [ ] Human detection-threshold benchmark for C3–C10. Cometto-Muñiz 2010 (PMID 20931179) measured a
-  homologous carboxylic-acid series and is the likely data source. This remains the one check that
-  could change the overall verdict.
+- [x] **Ran the human detection-threshold benchmark** (`demo_thresholds.py`, `data/thresholds/`).
+  Cometto-Muñiz & Abraham 2010 tested only C4, C6 and C8 from the panel. C4 and C6 sit at nearly
+  the same activation at threshold (0.08 log units apart, a weak pass on two points); with C8 the
+  spread is about 1 log unit, and the secondary Nagata data scatters by about 1.9. Inconclusive.
+- [ ] Source the log P, pKa and human nasal mucus pH values needed for the mucus and ionisation
+  corrections. The automated search was stopped by a safeguard in this session; try a fresh
+  session or another model, or gather them by hand. Then re-run `demo_thresholds.py`.
+- [ ] Find measured thresholds for C3, C5, C7, C9 and C10 (Wise et al. 2007, Chem Senses 32:475,
+  measured C2–C8 by SPME-GC-MS, but only its abstract was reachable).
 - [ ] Revisit the air-to-mucus step. Scott 2014 and Kurtz 2004 show mucus takes up lipophilic
   odorants more than water does, by about tenfold at log P 3 (extrapolated). This matters most for
   C8–C10.

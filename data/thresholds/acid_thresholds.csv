@@ -1,0 +1,9 @@
+odorant,threshold_ppb,role,source
+acetic acid,5.2,primary,"Cometto-Muniz & Abraham, Exp Brain Res 207:75-84 (2010), doi 10.1007/s00221-010-2430-0, PMC2964470 (full text), Table 2. Group fit, chance-corrected P=0.5, 3-AFC, GC-verified vapour; C=0.716 log ppb, SE 0.021; n=16. Not in the C3-C10 panel."
+butanoic acid,0.26,primary,"Cometto-Muniz & Abraham 2010, Table 2. C=-0.584 log ppb, SE 0.019; n=14."
+hexanoic acid,1.0,primary,"Cometto-Muniz & Abraham 2010, Table 2. C=0.008 log ppb, SE 0.023; n=18."
+octanoic acid,0.86,primary,"Cometto-Muniz & Abraham 2010, Table 2. C=-0.066 log ppb, SE 0.026; n=14; one outlier subject (most/least sensitive ratio 667)."
+propanoic acid,5.7,secondary,"Nagata, Measurement of Odor Threshold by Triangle Odor Bag Method (Japan Environmental Sanitation Center; Japan Ministry of the Environment Odor Measurement Review, https://www.env.go.jp/content/900450144.pdf). Printed 0.0057 ppm. Panel of 6, no spread given; fatty-acid values corrected by recovery rate."
+butanoic acid,0.19,secondary,"Nagata, printed 0.00019 ppm."
+pentanoic acid,0.037,secondary,"Nagata, printed 0.000037 ppm (n-valeric)."
+hexanoic acid,0.60,secondary,"Nagata, printed 0.00060 ppm."
