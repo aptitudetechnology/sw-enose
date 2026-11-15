@@ -12,7 +12,7 @@ and say for each stage how well the biology behind it is established.
 |---|---|---|
 | Processing stages (binding, convergence, adaptation, normalisation, sparse code) | Yes, modelled on animal olfaction | Built, tested on synthetic data. Stages 1 and 4 verified in cells or flies; stages 2 and 3 use invented numbers; stage 5 from a modelling paper. See `sources/AUDIT_*.md` |
 | Receptors themselves | **Partly**: real human EC50s from M2OR (`sw_enose/m2or.py`, `demo_m2or.py`) | 626 measured agonist pairs across 128 reference receptors. Efficacy assumed, and `demo_uncertainty.py` shows that assumption **changes the answer** near threshold; untested pairs (most of them) treated as no response |
-| How much the answers depend on what we don't know | — | Measured (`sw_enose/uncertainty.py`, `sw_enose/coverage.py`, `demo_uncertainty.py`). Efficacy, convergence and both adaptation constants all matter |
+| How much the answers depend on what we don't know | — | Measured (`sw_enose/uncertainty.py`, `sw_enose/coverage.py`, `demo_uncertainty.py`), paired over 12 seeds. Efficacy matters strongly; convergence only at an extreme setting; adaptation marginally |
 | Is the pipeline using the information the receptors give it? | — | Measured (`sw_enose/separability.py`, `demo_ceiling.py`, `demo_stage5.py`). It was discarding more than half of it; with graded expansion weights it is now within ~0.02 of an optimal readout |
 | Air-to-mucus conversion (ppb in air to uM at the receptor) | Partly | Built and tested (`sw_enose/air.py`, `demo_air.py`). Gas-law and Henry's-law steps are arithmetic; constants for the six demo odorants are **real** (Sander v5.0.0, `data/henry/`), two of the six only as estimates. Equilibrium, mucus composition, uptake and kinetics are all still unmodelled |
 | Comparison with any real nose or sensor | No | Not started |
@@ -166,12 +166,20 @@ C3-C7 decline, which is why C8 wants thousands of ppb where its neighbours want 
 artefact of which compound had a coefficient. Both gaps sit exactly where the long-chain receptors
 are tuned.
 
-## How much the answers depend on what we don't know (15 Nov 2026)
+## How much the answers depend on what we don't know (revised 16 Nov 2026)
 
-`demo_uncertainty.py` changes each unknown and asks whether the answer moves by more than reseeding
-the same model moves it. Anything smaller than that is not an effect. Measured on a hard task — a
-0.07 µM sulfur trace under strong sour, baseline recognition 0.87, chance 0.50 — because the easy
-four-smell task sits at 1.00 and so cannot show an effect in either direction.
+`demo_uncertainty.py` changes each unknown and asks whether the answer moves. It uses a hard task
+— a 0.07 µM sulfur trace under strong sour, chance 0.50 — because the easy four-smell task sits
+at 1.00 and cannot show an effect in either direction.
+
+**How it is measured, and why that was revised.** On the hard task a single random seed scores
+anywhere from about 0.4 to 1.0: the seed fixes the expansion wiring, and that wiring is most of
+the variance. The first version compared seed-averaged results against the min–max range of three
+single seeds. That yardstick was too small with three seeds, and grows without limit as seeds are
+added, so its verdicts flipped between runs and between weighting schemes. Every comparison is now
+**paired**: each condition runs on the same 12 seeds as its baseline, and the mean per-seed
+difference is judged against its own standard error. An effect "matters" above 2 paired SE and
+0.02; about 20 comparisons are made, so one result near 2–3 SE is marginal.
 
 **Conclusions are sensitive to efficacy, which is unknown.** M2OR records no efficacy, so `m2or.py`
 assumes 1.0. Our fits of Singh et al.'s raw curves give relative efficacy among agonists at the same
@@ -181,11 +189,14 @@ part of the spread may be fit degeneracy. Dividing by each receptor's largest `A
 one 1.0 in the sample per receptor by construction. The 6 saturated curves alone give a median of
 0.22, so the spread is not *purely* artefact, but six curves from one assay cannot show that
 efficacy = 1 is wrong. What they can do is supply a plausible range to stress-test against.
-Redrawing from it, recognition ranges 0.50–1.00, median 0.77 —
-sometimes exactly chance. Even when discrimination holds, only 0.39–0.83 of the sparse code's active
-cells survive, against 0.017 overlap between genuinely different smells. So the nose can report
-**that** two smells
-differ, but not **which** code belongs to which smell, and near threshold not even that.
+Redrawing from it,
+12 draws move seed-averaged recognition between 0.48 and 0.90 around a baseline of 0.70. The
+spread between draws (SD 0.150) is four times the precision of each draw's average (SE 0.036), and
+8 of 12 draws shift recognition beyond 2 paired SE, by −0.22 to +0.20. This is the firm result:
+**which plausible efficacies are drawn decides whether a near-threshold discrimination works.**
+Even when it works, a sizeable fraction of a code's active cells move (overlap 0.54–0.85 with the
+efficacy = 1 code, against 0.09 between different smells), so the nose can report **that** two
+smells differ but not **which** code belongs to which.
 
 **Coverage is worse than the headline figure suggests.** Of 23 receptors with a measured agonist
 among the six demo odorants, **none** was tested against all six, and only two odorant pairs have two
@@ -193,27 +204,21 @@ or more receptors tested against both. The recognition scores in `demo_mixture.p
 mostly not a measured difference between odorants but a difference in which receptors each odorant
 was screened against. `demo_mixture.py` now prints that caveat beside its own results.
 
-**Convergence clearly matters; the adaptation constants only marginally.** Convergence is
-load-bearing: recognition falls to 0.60 at one neuron per type against a baseline of 0.87, because
-stage 2 acts only by averaging neuron noise away. Both adaptation constants show ordered trends, but
-thin ones — `adapt_tau` rising 0.79 → 0.90 (rank correlation +1.00) and `adapt_strength` falling
-0.90 → 0.82 (−0.90), spreads of 0.11 and 0.08 against a reseeding floor of 0.07. They clear the
-floor, but not by much, and three seeds is a small sample. Note the sign: on a *static* presentation adaptation can only subtract signal, so "matters"
-here means "measurably costs accuracy", not "helps". A task with a changing background, where
-adaptation should earn its keep, is not built. `recover_tau` still gets **no verdict** at all:
-recovery acts only once an odour is removed and the task never removes one, so its flat result is an
-absence of evidence, not evidence of absence.
+**Of the invented stage parameters, only an extreme convergence ratio clearly matters.**
+- *Convergence:* one neuron per receptor type costs about 0.10–0.14 (−0.137 ± 0.054 with binary
+  weights; −0.096 ± 0.051 with graded, just short of 2 SE). Above about 20 per type nothing is
+  detectable. Stage 2 acts only by averaging neuron noise, so the invented ratio is load-bearing
+  only if set very low.
+- *Adaptation:* at most about 0.06, detectable with graded weights (+0.058 ± 0.022 at
+  `adapt_tau` 100; +0.061 ± 0.023 at strength 0) and not with binary weights (nothing beyond
+  ±0.04–0.05). Marginal. On a static presentation adaptation can only subtract signal, so this is a
+  small cost; a changing-background task is needed to see what adaptation is for.
+- *`recover_tau`:* no verdict at all. Recovery acts only once an odour is removed, and this task
+  never removes one.
 
-*Update, after graded weights were adopted (see "Stage 5 fixed" below): rerun with the new
-default and the same 3 seeds, the hard-task baseline is 0.62 and all three stage parameters come
-out "does not matter" against a reseeding floor of 0.34. A 7-seed check shows the floor is that
-large under binary weights too. The verdicts in this section are provisional.*
-
-**Correction to the previous commit**, which reported that the adaptation constants move the answer
-less than reseeding does and could stay invented. That was an artefact of the sparse-coding bug
-described below: the broken code was lossy enough to raise the reseeding floor to 0.11 and bury the
-adaptation effect under it. With the expansion layer fixed, the floor drops to 0.07 and both trends
-are visible. A measurement tool is only as good as the pipeline it measures.
+*Superseded:* two earlier versions of this section reported, in turn, that adaptation did not
+matter and that it did. Both rested on the three-seed yardstick described above; neither should be
+cited.
 
 ## The ceiling, and whether we reach it (15 Nov 2026)
 
@@ -338,12 +343,11 @@ Attribution (part 2 of the demo): the readout rule does not matter (Hebbian coun
 memory agree within about 0.01). Muezzinoglu's advantage came from Bernoulli wiring and more cells,
 which give more distinct cells; graded weights alone do better than either.
 
-**Caveat found on the way.** On the separate sulfur-trace task in `demo_uncertainty.py`, results
-swing from about 0.5 to 1.0 with the random seed alone, under every weighting (7 seeds: binary
-0.74, uniform 0.72, lognormal 0.71 at the faintest trace; no real difference). That demo judged
-its sensitivity verdicts against a noise floor from only 3 seeds, which understated this, and its
-stage-parameter verdicts flip between weightings. Treat the uncertainty section above as
-provisional until it is rerun with many more seeds.
+**Caveat found on the way.** On the separate sulfur-trace task, results swing from about 0.5 to
+1.0 with the random seed alone, under every weighting (7 seeds at the faintest trace: binary
+0.74, uniform 0.72, lognormal 0.71, no real difference). That exposed a flaw in how
+`demo_uncertainty.py` judged its verdicts; it now uses a paired 12-seed analysis (see "How much the
+answers depend on what we don't know").
 
 ## Not done yet
 

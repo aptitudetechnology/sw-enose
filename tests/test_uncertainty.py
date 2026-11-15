@@ -152,3 +152,43 @@ def test_stage_sensitivity_sweeps_and_skips_overlap_where_the_code_is_reshaped()
     assert "sparsity" in RESHAPES_CODE
     assert all(np.isnan(r["overlap"]) for r in s["sweeps"]["sparsity"]), \
         "changing the expansion layer makes codes incomparable, so overlap must not be reported"
+
+
+# --- the paired analysis ---
+
+from sw_enose.uncertainty import paired_efficacy, paired_stage_sweep, paired_verdict
+
+
+def _rows(diffs, ses, values=None):
+    values = values or list(range(len(diffs)))
+    return [{"value": v, "acc": np.zeros(5), "diff_mean": d, "diff_se": s}
+            for v, d, s in zip(values, diffs, ses)]
+
+
+def test_paired_verdict_needs_both_significance_and_size():
+    assert paired_verdict(_rows([0.10], [0.01])).startswith("MATTERS")
+    assert paired_verdict(_rows([0.10], [0.08])).startswith("NO EFFECT DETECTED"), "within 2 SE"
+    assert paired_verdict(_rows([0.01], [0.001])).startswith("NO EFFECT DETECTED"), "too small to matter"
+    assert paired_verdict(_rows([0.0, 0.0], [0.0, 0.0])).startswith("NOT EXERCISED")
+
+
+def test_no_effect_verdict_states_what_could_have_been_detected():
+    v = paired_verdict(_rows([0.03], [0.04]))
+    assert "could not have been seen" in v and "0.080" in v
+
+
+def test_paired_sweep_cancels_seed_luck():
+    """Two seeds with very different baselines; a parameter that does nothing must show zero
+    paired difference on every seed."""
+    p = small()
+    r = paired_stage_sweep(p, panel(p), {"recover_tau": [1.0, 100.0]}, seeds=(0, 1, 2), trials=5,
+                           neuron_noise=0.0)
+    for row in r["sweeps"]["recover_tau"]:
+        assert row["diff_mean"] == 0.0 and row["diff_se"] == 0.0
+
+
+def test_paired_efficacy_reports_between_and_within_draw_spread():
+    p = small()
+    r = paired_efficacy(p, panel(p), draws=3, seeds=(0, 1), trials=5, neuron_noise=0.1)
+    assert len(r["draws"]) == 3 and len(r["draw_means"]) == 3
+    assert r["between_draw_sd"] >= 0 and r["typical_se"] >= 0

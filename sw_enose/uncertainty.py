@@ -265,3 +265,78 @@ def sweep_summary(rows, baseline: dict, label="") -> dict:
              f"{rho:+.2f}), {min(rec):.2f} to {max(rec):.2f}, a spread of {spread:.2f} against "
              f"{baseline['spread']:.2f} from reseeding; an ordered trend is not reseeding noise")
     return {"spread": spread, "rho": rho, "trend": trend, "verdict": v}
+
+
+# ---------------------------------------------------------------------------------------------
+# Paired analysis. Added 16 Nov 2026 after finding that the sulfur-trace task swings from about
+# 0.5 to 1.0 with the random seed alone: the seed fixes the expansion wiring, and that wiring is
+# most of the variance. `verdict` above compares the spread of seed-AVERAGED accuracies against
+# the min-max range of INDIVIDUAL seeds, a yardstick that grows as seeds are added, so with many
+# seeds everything would read "does not matter". The functions below compare conditions WITHIN
+# each seed and test the mean paired difference against its own standard error, which cancels the
+# wiring luck instead of letting it swamp the comparison.
+
+def paired_stage_sweep(params: ReceptorParams, panel: dict, grid: dict, seeds=tuple(range(1, 13)),
+                       trials=50, steps=1, adapt=False, **nose_kw) -> dict:
+    """For each swept value and each seed, recognition; differences are taken against the
+    baseline nose (nose_kw alone) with the SAME seed.
+
+    Returns {"baseline": per-seed array, "sweeps": {key: [{"value", "acc" (per seed),
+    "diff_mean", "diff_se"}]}}.
+    """
+    seeds = tuple(seeds)
+    rec = lambda kw, s: panel_recognition(BiomimeticNose(params, seed=s, **kw), panel,
+                                          trials=trials, steps=steps, adapt=adapt)
+    base = np.array([rec(nose_kw, s) for s in seeds])
+    out = {"baseline": base, "seeds": seeds, "sweeps": {}}
+    for key, values in grid.items():
+        rows = []
+        for v in values:
+            acc = np.array([rec({**nose_kw, key: v}, s) for s in seeds])
+            d = acc - base
+            rows.append({"value": v, "acc": acc, "diff_mean": float(d.mean()),
+                         "diff_se": float(d.std(ddof=1) / np.sqrt(len(d)))})
+        out["sweeps"][key] = rows
+    return out
+
+
+def paired_verdict(rows, min_effect=0.02, z=2.0, label="this parameter") -> str:
+    """MATTERS if some value shifts recognition by more than `z` paired standard errors AND by at
+    least `min_effect` in absolute terms; otherwise report the smallest effect the data could
+    have detected, so "no effect found" is never mistaken for "no effect"."""
+    sig = [r for r in rows if abs(r["diff_mean"]) > max(z * r["diff_se"], min_effect)]
+    if sig:
+        worst = max(sig, key=lambda r: abs(r["diff_mean"]))
+        return (f"MATTERS: {label}={worst['value']} shifts recognition by {worst['diff_mean']:+.3f} "
+                f"(paired SE {worst['diff_se']:.3f}, {len(worst['acc'])} seeds)")
+    detectable = max(max(z * r["diff_se"], min_effect) for r in rows)
+    if all(r["diff_se"] == 0 and r["diff_mean"] == 0 for r in rows):
+        return (f"NOT EXERCISED: every value gives identical recognition on every seed, so this task "
+                f"does not test {label} at all")
+    return (f"NO EFFECT DETECTED for {label}: every shift is within {z:.0f} paired SE; effects "
+            f"smaller than about {detectable:.3f} could not have been seen")
+
+
+def paired_efficacy(params: ReceptorParams, panel: dict, draws=12, seeds=tuple(range(1, 13)),
+                    trials=50, steps=1, adapt=False, sample=SINGH_RELATIVE_EFFICACY, **nose_kw) -> dict:
+    """Recognition for each efficacy redraw on each seed, paired against efficacy=1 on that seed.
+
+    Answers two questions: does a redraw shift recognition beyond paired noise (per draw), and is
+    the spread BETWEEN draws larger than the precision of each draw's seed-average.
+    """
+    seeds = tuple(seeds)
+    rng = np.random.default_rng(seeds[0])
+    rec = lambda q, s: panel_recognition(BiomimeticNose(q, seed=s, **nose_kw), panel, trials=trials,
+                                         steps=steps, adapt=adapt)
+    base = np.array([rec(params, s) for s in seeds])
+    per_draw = []
+    for _ in range(draws):
+        q = resample_efficacy(params, rng, sample)
+        acc = np.array([rec(q, s) for s in seeds])
+        d = acc - base
+        per_draw.append({"acc": acc, "diff_mean": float(d.mean()),
+                         "diff_se": float(d.std(ddof=1) / np.sqrt(len(d)))})
+    means = np.array([p["acc"].mean() for p in per_draw])
+    typical_se = float(np.median([p["acc"].std(ddof=1) / np.sqrt(len(seeds)) for p in per_draw]))
+    return {"baseline": base, "seeds": seeds, "draws": per_draw, "draw_means": means,
+            "between_draw_sd": float(means.std(ddof=1)), "typical_se": typical_se}

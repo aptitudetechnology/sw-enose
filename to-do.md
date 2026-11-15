@@ -154,8 +154,11 @@ comparison.
   layer keeps exactly the top fraction), then commit.
 - [x] **Kenyon-layer effect separated** (`demo_stage5.py` part 2): readout rule makes no difference;
   Muezzinoglu's gain came from Bernoulli wiring plus cell count (more distinct cells).
-- [ ] Rerun `demo_uncertainty.py` with many more seeds (10+). Its sulfur-trace task swings 0.5-1.0
-  with the seed alone, so its 3-seed noise floor was understated and its verdicts are provisional.
+- [x] **Reran `demo_uncertainty.py` with a paired 12-seed analysis** (`paired_stage_sweep`,
+  `paired_efficacy`, `paired_verdict`). The old yardstick (seed-averaged results against the min-max
+  of single seeds) was flawed, not just under-sampled. Firm: efficacy matters (between-draw SD 0.150
+  vs SE 0.036; 8 of 12 draws significant). Convergence only at 1 neuron/type. Adaptation at most
+  ~0.06, marginal. recover_tau untested.
 - [x] **Done (uncommitted): ported the Lazar antennal-lobe circuit to numpy.** Files:
   `sw_enose/lazar_al.py` (port, with the BSD-3 notice), `demo_lazar.py`, `tests/test_lazar_al.py`.
   The data is cloned to `data/lazar2022/repo/` and gitignored.

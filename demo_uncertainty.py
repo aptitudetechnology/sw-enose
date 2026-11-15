@@ -17,14 +17,15 @@ from sw_enose import BiomimeticNose
 from sw_enose.coverage import comparable_odorants, describe, restrict_to_tested, support
 from sw_enose.m2or import build_params
 from sw_enose.mixture import concentration_vector
-from sw_enose.uncertainty import (SINGH_RELATIVE_EFFICACY, between_smell_overlap,
+from sw_enose.uncertainty import (paired_efficacy, paired_stage_sweep, paired_verdict,
+                                  SINGH_RELATIVE_EFFICACY, between_smell_overlap,
                                   efficacy_sensitivity, seed_floor, stage_sensitivity,
                                   sweep_summary, verdict)
 
 CSV = os.path.join(os.path.dirname(__file__), "data/m2or/repo/M2OR_20230428.csv")
 ODOURS = ("butanoic acid", "isovaleric acid", "Dimethyl trisulfide", "Octanethiol",
           "cinnamaldehyde", "L-Carvone")
-SEEDS = (1, 5, 9)
+SEEDS = tuple(range(1, 13))       # 12 seeds; see the paired analysis below
 TRIALS = 50
 
 p = build_params(CSV, ODOURS)
@@ -77,69 +78,78 @@ print(f"  0.07 uM sulfur trace under strong sour: recognition {h_floor['mean']:.
       f"(seeds {h_floor['min']:.2f}-{h_floor['max']:.2f}), chance 0.50")
 print("  The easy task is at ceiling, so it cannot show an effect in either direction. Everything")
 print("  below is measured on the hard one, where there is room to fall and room to improve.")
+print(f"""
+  HOW TO READ WHAT FOLLOWS. On the hard task a single seed can score anywhere from about 0.4 to
+  1.0: the seed fixes the expansion wiring, and that wiring is most of the variance. So every
+  comparison below is PAIRED: each condition is run on the same {len(SEEDS)} seeds as its
+  baseline, and the mean of the per-seed differences is judged against its own standard error.
+  (An earlier version compared seed-averaged results with the min-max range of single seeds, a
+  yardstick that grows as seeds are added; its verdicts are superseded by these.) An effect
+  "MATTERS" when it exceeds 2 paired SE and 0.02; about 20 comparisons are made, so a single
+  result near 2-3 SE is marginal.""")
 
 ctrl = between_smell_overlap(p, easy, seed=SEEDS[0], neuron_noise=0.05)
 print(f"\n  CONTROL for reading overlap: codes for DIFFERENT smells overlap {ctrl['mean']:.3f} "
       f"on average (worst pair {ctrl['max']:.3f}), chance {ctrl['chance']:.3f}.")
-print("  So the codes are near orthogonal, and an overlap of 0.6 below means 'the same smell with")
-print("  a large minority of its cells moved', not 'barely related'.")
 
 # ---------------------------------------------------------------- 2. efficacy
 print("\n" + "=" * 78)
 print("2. EFFICACY: M2OR assumes every agonist acts at full strength")
 print("=" * 78)
-s = np.asarray(SINGH_RELATIVE_EFFICACY)
+s_ = np.asarray(SINGH_RELATIVE_EFFICACY)
 print(f"Our fits of Singh et al.'s raw curves give relative efficacy among agonists at the same")
-print(f"receptor: n={len(s)}, range {s.min():.3f} to {s.max():.3f}, median {np.median(s):.3f}.")
-print("So the assumed 1.0 is not a mild simplification: a typical agonist acts at under half the")
-print("strength of the best agonist at its receptor. Redrawing from that measured spread:\n")
-eff = efficacy_sensitivity(p, hard, draws=12, seeds=SEEDS, trials=TRIALS, neuron_noise=0.05)
-print(f"  recognition over {eff['draws']} draws: {eff['recognition'][0]:.2f} to "
-      f"{eff['recognition'][2]:.2f}, median {eff['recognition'][1]:.2f}")
-print(f"  baseline (efficacy=1): {eff['baseline']['mean']:.2f}, seeds "
-      f"{eff['baseline']['min']:.2f}-{eff['baseline']['max']:.2f}")
-print(f"  code overlap with the efficacy=1 nose: {eff['overlap'][0]:.2f} to {eff['overlap'][2]:.2f}, "
-      f"median {eff['overlap'][1]:.2f}  (different smells: {ctrl['mean']:.3f})")
-print(" ", verdict(eff["recognition"], eff["baseline"], "near-threshold discrimination"))
-print("\n  Read it as two separate facts. Discrimination sometimes collapses to chance (0.50) and")
-print("  sometimes beats the baseline, purely with which efficacies were drawn. And even when it")
-print("  holds, a third to two thirds of the code's active cells move. So this nose can report THAT")
-print("  two smells differ, but not WHICH code belongs to a smell, and near threshold not even that.")
+print(f"receptor: n={len(s_)}, range {s_.min():.3f} to {s_.max():.3f}, median {np.median(s_):.3f}. That spread is")
+print("weak evidence (17 of the 24 curves behind it do not saturate, so their efficacy is not")
+print("identifiable), but it is a plausible range to stress-test against. Redrawing from it:\n")
+eff = paired_efficacy(p, hard, draws=12, seeds=SEEDS, trials=TRIALS, neuron_noise=0.05)
+sig = [d for d in eff["draws"] if abs(d["diff_mean"]) > max(2 * d["diff_se"], 0.02)]
+print(f"  baseline (efficacy=1), mean over seeds: {eff['baseline'].mean():.3f}")
+print(f"  12 redraws, each averaged over the same seeds: {eff['draw_means'].min():.3f} to "
+      f"{eff['draw_means'].max():.3f}")
+print(f"  spread BETWEEN draws (SD {eff['between_draw_sd']:.3f}) against the precision of one draw's "
+      f"average (SE {eff['typical_se']:.3f})")
+print(f"  draws shifting recognition beyond 2 paired SE: {len(sig)} of {len(eff['draws'])} "
+      f"(shifts {min(d['diff_mean'] for d in sig):+.2f} to {max(d['diff_mean'] for d in sig):+.2f})"
+      if sig else "  no draw shifts recognition beyond 2 paired SE")
+old = efficacy_sensitivity(p, hard, draws=12, seeds=SEEDS[:3], trials=TRIALS, neuron_noise=0.05)
+print(f"  code overlap with the efficacy=1 nose: {old['overlap'][0]:.2f} to {old['overlap'][2]:.2f}, "
+      f"median {old['overlap'][1]:.2f}  (different smells: {ctrl['mean']:.3f})")
+print("""
+  Efficacy MATTERS, and this is the firm result of the section: which plausible efficacies are
+  drawn moves near-threshold recognition by up to about 0.2 either way, several times the
+  precision of the measurement. And even when discrimination holds, a sizeable fraction of a
+  code's active cells move. So this nose can report THAT two smells differ, but not WHICH code
+  belongs to a smell, and near threshold not even that, until efficacy is known.""")
 
 # ---------------------------------------------------------------- 4. stages
 print("\n" + "=" * 78)
-print("4. THE INVENTED STAGE PARAMETERS")
+print("4. THE INVENTED STAGE PARAMETERS (paired, %d seeds)" % len(SEEDS))
 print("=" * 78)
 grid = {"neurons_per_type": [1, 5, 20, 50, 200, 500],
         "adapt_tau": [1, 4, 8, 30, 100],
         "adapt_strength": [0.0, 0.3, 0.6, 0.9, 0.95],
         "recover_tau": [1, 4, 20, 100]}
-st = stage_sensitivity(p, hard, grid, seeds=SEEDS, trials=TRIALS, neuron_noise=0.05,
-                       steps=5, adapt=True)
-b = st["baseline"]
-print(f"baseline {b['mean']:.2f}, reseeding alone moves it {b['spread']:.2f} "
-      f"({b['min']:.2f}-{b['max']:.2f}). A sweep must beat that to mean anything.\n")
-for key, rows in st["sweeps"].items():
-    summ = sweep_summary(rows, b, key)
-    print(f"  {key} (BIOLOGY says: numbers invented)")
-    print("    " + "  ".join(f"{r['value']}:{r['recognition']:.2f}" for r in rows))
-    print(f"    code overlap with baseline stays {min(r['overlap'] for r in rows):.2f}"
-          f"-{max(r['overlap'] for r in rows):.2f}")
-    print(f"    {summ['verdict']}")
+for w in ("lognormal", "binary"):
+    st = paired_stage_sweep(p, hard, grid, seeds=SEEDS, trials=TRIALS, neuron_noise=0.05,
+                            steps=5, adapt=True, kc_weights=w)
+    b = st["baseline"]
+    print(f"\n  [{w} expansion weights{' -- current default' if w == 'lognormal' else ''}] baseline "
+          f"{b.mean():.3f}; shifts from it, mean +/- paired SE:")
+    for key, rows in st["sweeps"].items():
+        print(f"    {key:16s} " + "  ".join(f"{r['value']}:{r['diff_mean']:+.3f}+/-{r['diff_se']:.3f}"
+                                           for r in rows))
+        print(f"    {'':16s} {paired_verdict(rows, label=key)}")
 
 print("""
-What this retires and what it does not. The two adaptation constants that the task does exercise
-move the answer less than reseeding does, so those invented numbers are not load-bearing here and
-can stay invented without weakening a result. Convergence is different: recognition trends with it
-in rank order across the sweep, because stage 2 acts only by averaging neuron noise away, so the
-invented convergence ratio IS load-bearing near threshold and wants a real number.
-
-recover_tau gets no verdict at all, and that is the right answer rather than a gap: recovery only
-does anything once an odour is taken away, and this task never removes one. Testing it needs a
-presentation with a blank period in it, which is not built. Reporting it as "does not matter" would
-have been a false reassurance.
-
-The efficacy assumption is the serious one. It is unknown, the spread used here is a weak estimate
-(17 of the 24 Singh curves behind it do not saturate, so their efficacy is not identifiable), and
-across that plausible range it decides whether a near-threshold discrimination works at all. Nothing in this repo should claim a near-threshold result from M2OR
-parameters until efficacy is measured or bounded per pair.""")
+What this retires and what it does not.
+ - Convergence matters only at the extreme: one neuron per receptor type costs about 0.1-0.14,
+   because stage 2 acts only by averaging neuron noise. Above about 20 neurons per type no effect
+   is detectable. The invented ratio is load-bearing only if it is set very low.
+ - The adaptation constants move recognition by at most about 0.06, detectably with graded
+   weights and not with binary ones. On a static presentation adaptation can only subtract
+   signal, so this is a small cost, not a benefit; a task with a changing background is needed to
+   see what adaptation is for.
+ - recover_tau gets no verdict at all: recovery only acts once an odour is removed, and this task
+   never removes one. Reporting it as "does not matter" would be a false reassurance.
+ - Efficacy is the serious unknown. Nothing in this repo should claim a near-threshold result
+   from M2OR parameters until efficacy is measured or bounded per pair.""")
