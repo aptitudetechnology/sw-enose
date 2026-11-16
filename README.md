@@ -469,6 +469,15 @@ design was fixed before running.
   0.53 → 0.73; k = 10: up to 0.97). Not yet tested: whether generic log-then-L2, which tied Olsen
   elsewhere, gives the same gain. Calibrating with a single reference gas is unreliable: it helps
   slightly on long-term drift and hurts between neighbouring batches.
+- **Tuned SVMs confirm all of this** (`demo_drift_svm.py`; needs the project venv with
+  scikit-learn, see its header). Linear and RBF SVMs and a tuned logistic regression, every
+  hyperparameter chosen by cross-validation inside the training data only, on raw, Olsen and
+  generic log-then-L2 inputs. Long-term drift still caps every classifier at about 0.39–0.50,
+  so the earlier conclusions were not an artefact of weak baselines. In few-sample
+  recalibration, compression plus normalisation helps every classifier (k = 3: linear SVM 0.868
+  → ~0.90, RBF SVM 0.763 → ~0.87, logistic 0.815 → ~0.88), and **generic log-then-L2 matches
+  Olsen within ~0.01 everywhere**: the fly-specific form adds nothing. Best practical result: a
+  linear SVM on log-then-L2 input, recalibrated on 10 labelled samples per gas, 0.976.
 - **Drift overwhelms every method:** trained on batch 1, all fall to 0.06–0.25 on batch 8.
 - Caveats: fixed, untuned baselines; no SVM (scikit-learn not installed); one random seed for the
   expansion; published results on this dataset use other protocols and are not compared.

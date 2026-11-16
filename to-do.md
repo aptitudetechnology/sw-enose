@@ -227,7 +227,9 @@ comparison.
 - [x] **First real-data benchmark** (`demo_drift.py`, UCI drift dataset, held out by time). Plain
   logistic regression wins (0.442 / 0.753); Olsen normalisation is the one stage that helps
   (+0.10–0.12 over the same classifier without it); expansion adds nothing on top.
-- [ ] Add an SVM baseline (needs scikit-learn in a project venv) and seed-averaged expansion runs.
+- [x] **SVM baselines** (`demo_drift_svm.py`, project venv): tuned linear/RBF SVMs and logistic
+  regression confirm the conclusions; long-term drift caps all at ~0.5. Seed-averaged expansion
+  runs dropped: the expansion layer was already shown not to help on real data.
 - [x] **Olsen as pre-processing** (`demo_drift.py`, second part): against long-term drift it beats a
   trivial L2 normalisation for every classifier (+0.05–0.12); 5-NN + Olsen 0.533 vs plain logistic
   regression 0.442, robust across a 20x range of the invented rate parameter for 5-NN. No special
@@ -241,8 +243,9 @@ comparison.
   samples per gas from the current batch lift long-term accuracy 0.44 -> 0.82-0.97; the old training
   data adds nothing (recent samples alone do as well or better). Olsen makes few-sample learning
   more efficient (k=3: 5-NN 0.53 -> 0.73). Single-gas offset calibration is unreliable.
-- [ ] Few-sample efficiency: does generic log-then-L2 match Olsen here too? And how few samples
-  are enough per gas, per classifier (k = 1, 2)?
+- [x] **Generic log-then-L2 matches Olsen in the few-sample setting too** (within ~0.01, every
+  classifier). Best: linear SVM + log-then-L2, k = 10 per gas, 0.976.
+- [ ] How few samples are enough per gas (k = 1, 2), per classifier?
 - [ ] Wind-tunnel dataset (UCI 251, raw time series, 7.8 GB) once the time-varying pipeline
   (depression) exists.
 
