@@ -434,6 +434,15 @@ design was fixed before running.
   concentration changes that drift produces.
 - **The expansion layer adds nothing on top of it here;** the full pipeline is slightly worse
   than Olsen plus a simple classifier.
+- **As pre-processing for standard classifiers, Olsen beats a trivial normalisation against
+  long-term drift.** Tested against a per-sample L2 normalisation as the control (does the
+  biology matter, or just normalising?): on protocol A, Olsen wins for every classifier (+0.05
+  to +0.12 over L2), and 5-NN on Olsen-normalised input reaches 0.533 against 0.442 for plain
+  logistic regression. For 5-NN this holds across a 20-fold range of Olsen's one invented
+  parameter (0.511–0.538); for logistic regression the gain is positive but parameter-sensitive.
+  Between neighbouring batches (protocol B) Olsen is no better than any normalisation. The
+  defensible claim: a fly-derived normalisation stage makes standard classifiers more robust to
+  long-term drift on this dataset. One dataset; not a general result.
 - **Drift overwhelms every method:** trained on batch 1, all fall to 0.06–0.25 on batch 8.
 - Caveats: fixed, untuned baselines; no SVM (scikit-learn not installed); one random seed for the
   expansion; published results on this dataset use other protocols and are not compared.

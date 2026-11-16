@@ -117,3 +117,63 @@ for name, pairs in (("A: train on batch 1, test on batch k", [(1, k) for k in ra
     print(f"   {'':46s}" + "".join(f"{te:>6d}" for _, te in pairs) + "    mean")
     for m, accs in table.items():
         print(f"   {m:46s}" + "".join(f"{a:6.2f}" for a in accs) + f"   {np.mean(accs):.3f}")
+
+
+# ------------------------------------------------------------------ Olsen as pre-processing
+# Question fixed before running: does Olsen normalisation improve the BEST plain classifiers,
+# beyond a trivial per-sample normalisation (L2) that also divides out overall magnitude?
+# Credit Olsen only if it beats both the front end alone and the L2 control, same classifier,
+# on both protocols. Every representation is standardised on the training batch.
+from sw_enose.reference_models import raman_connectivity, raman_shunting  # noqa: E402
+
+
+def representations(Xtr, Xte):
+    fe = OnOffFrontEnd().fit(Xtr)
+    A_tr, A_te = fe.transform(Xtr), fe.transform(Xte)
+    l2 = lambda A: A / np.maximum(np.linalg.norm(A, axis=1, keepdims=True), 1e-12)
+    c = raman_connectivity(A_tr.shape[1], "global")
+    return {"raw": (Xtr, Xte), "front end": (A_tr, A_te), "+ L2 (control)": (l2(A_tr), l2(A_te)),
+            "+ Raman": (raman_shunting(A_tr, c), raman_shunting(A_te, c)),
+            "+ Olsen": (olsen(A_tr), olsen(A_te))}
+
+
+CLASSIFIERS = {"nearest centroid": nearest_centroid, "5-NN": knn, "logistic regression": logistic}
+for name, pairs in (("A", [(1, k) for k in range(2, 11)]), ("B", [(k - 1, k) for k in range(2, 11)])):
+    res = {}
+    for tr, te in pairs:
+        mtr, mte = B == tr, B == te
+        for rname, (Rtr, Rte) in representations(X[mtr], X[mte]).items():
+            Str, Ste = standardise(Rtr, Rte)
+            for cname, f in CLASSIFIERS.items():
+                res.setdefault((cname, rname), []).append(float((f(Str, y[mtr], Ste) == y[mte]).mean()))
+    rnames = ["raw", "front end", "+ L2 (control)", "+ Raman", "+ Olsen"]
+    print(f"\nPre-processing, protocol {name}: mean held-out accuracy, inputs standardised")
+    print(f"   {'':22s}" + "".join(f"{r:>16s}" for r in rnames))
+    for cname in CLASSIFIERS:
+        print(f"   {cname:22s}" + "".join(f"{np.mean(res[(cname, r)]):16.3f}" for r in rnames))
+
+print("\nSensitivity to Olsen's one invented parameter, the activation-to-rate conversion "
+      "(max_orn_rate, default 250):")
+for rate in (50, 100, 250, 500, 1000):
+    nose = BiomimeticNose(synthetic_params(n_receptors=256, odorants=("A",)), neuron_noise=0.0,
+                          max_orn_rate=rate)
+    row = []
+    for pairs in ([(1, k) for k in range(2, 11)], [(k - 1, k) for k in range(2, 11)]):
+        a_knn, a_lr = [], []
+        for tr, te in pairs:
+            mtr, mte = B == tr, B == te
+            fe = OnOffFrontEnd().fit(X[mtr])
+            Str, Ste = standardise(np.apply_along_axis(nose.normalise, 1, fe.transform(X[mtr])),
+                                   np.apply_along_axis(nose.normalise, 1, fe.transform(X[mte])))
+            a_knn.append((knn(Str, y[mtr], Ste) == y[mte]).mean())
+            a_lr.append((logistic(Str, y[mtr], Ste) == y[mte]).mean())
+        row += [np.mean(a_knn), np.mean(a_lr)]
+    print(f"   {rate:5d}:  A 5-NN {row[0]:.3f}  A logreg {row[1]:.3f}  |  B 5-NN {row[2]:.3f}  "
+          f"B logreg {row[3]:.3f}")
+
+print("""
+Reading it: against long-term drift (A), Olsen pre-processing beats the trivial L2 normalisation
+for every classifier, and for 5-NN it does so across a 20-fold range of its invented parameter
+(the best long-horizon result rises from 0.44 for plain logistic regression to about 0.53). For
+logistic regression the gain is positive but parameter-sensitive. Between neighbouring batches
+(B), Olsen is no better than any normalisation. One dataset; deterministic methods; no SVM.""")

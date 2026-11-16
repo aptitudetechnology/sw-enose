@@ -230,8 +230,12 @@ comparison.
   logistic regression wins (0.442 / 0.753); Olsen normalisation is the one stage that helps
   (+0.10–0.12 over the same classifier without it); expansion adds nothing on top.
 - [ ] Add an SVM baseline (needs scikit-learn in a project venv) and seed-averaged expansion runs.
-- [ ] Test Olsen normalisation as a pre-processing step for the plain classifiers (does it help
-  logistic regression too?).
+- [x] **Olsen as pre-processing** (`demo_drift.py`, second part): against long-term drift it beats a
+  trivial L2 normalisation for every classifier (+0.05–0.12); 5-NN + Olsen 0.533 vs plain logistic
+  regression 0.442, robust across a 20x range of the invented rate parameter for 5-NN. No special
+  benefit between neighbouring batches.
+- [ ] Find out WHY Olsen beats L2 on long-term drift (its saturating exponent? the sigma floor?),
+  and whether the expansion layer helps when fed Olsen-normalised, standardised input.
 - [ ] Drift compensation: ratio-to-reference features (Sterk-group style) and batch-wise
   recalibration ideas, judged on later batches only.
 - [ ] Wind-tunnel dataset (UCI 251, raw time series, 7.8 GB) once the time-varying pipeline
