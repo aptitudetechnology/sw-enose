@@ -443,6 +443,22 @@ design was fixed before running.
   Between neighbouring batches (protocol B) Olsen is no better than any normalisation. The
   defensible claim: a fly-derived normalisation stage makes standard classifiers more robust to
   long-term drift on this dataset. One dataset; not a general result.
+- **Why, and a correction (`demo_drift_mechanisms.py`).** Knocking out Olsen's ingredients one at
+  a time shows the gain is not specific to the fly's equation. On long-term drift (A), plain log
+  compression of each channel matches or beats full Olsen (logistic regression 0.621 vs 0.462),
+  and removing Olsen's lateral pooling helps; between neighbouring batches (B), dividing by
+  population activity is what helps, and plain L2 does about as well. A generic "log-compress,
+  then L2-normalise" recipe ties Olsen exactly (mean 0.641 over both protocols and three
+  classifiers). So the honest claim is narrower than the bullet above: Olsen helps because it
+  combines per-channel compression and divisive normalisation, each useful against a different
+  time-scale of drift; on this dataset its specific biological form gives no advantage over the
+  generic version.
+- **The expansion layer does not help on real data**, even fed Olsen-normalised input (0.399 /
+  0.714 against 0.533 / 0.795 for 5-NN on the same input).
+- **Drift compensation:** ratio-to-reference features (as in the SpiroNose pipeline) do not help.
+  Recalibrating each batch on its own statistics, without labels, is the strongest long-term fix
+  (logistic regression 0.442 → 0.664; 5-NN with Olsen 0.650), but it is transductive: it needs a
+  batch of unlabelled measurements at once, and batches hold different gas mixes.
 - **Drift overwhelms every method:** trained on batch 1, all fall to 0.06–0.25 on batch 8.
 - Caveats: fixed, untuned baselines; no SVM (scikit-learn not installed); one random seed for the
   expansion; published results on this dataset use other protocols and are not compared.

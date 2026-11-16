@@ -194,9 +194,7 @@ comparison.
   static sniff path lacks, and its strength was fitted on one glomerulus.
 - [ ] Peaks are still low (106 vs 167 Hz): test whether ORN rate-of-change (Kim 2015) or GABA
   presynaptic inhibition adds the missing onset burst.
-- [ ] (superseded by the above) Find what CAN produce the DM4 transients. Candidates: the Lazar circuit's synaptic kinetics
-  (Post-LN `a`/`b` rates), sw-enose's adaptation scored on RMSE rather than r, or a transient
-  (contrast) term ahead of Olsen. Judge on held-out recordings and on RMSE, not peaks alone.
+
 - [ ] Ask the Lazar group which circuit configuration in the paper reproduces the DM4 peaks.
 - [ ] Email the Lazar 2024 and Scott 2014 corresponding authors asking for code.
 - [ ] Give Muezzinoglu's antennal lobe a fair test: it needs time-varying input (sensor-like
@@ -234,10 +232,13 @@ comparison.
   trivial L2 normalisation for every classifier (+0.05–0.12); 5-NN + Olsen 0.533 vs plain logistic
   regression 0.442, robust across a 20x range of the invented rate parameter for 5-NN. No special
   benefit between neighbouring batches.
-- [ ] Find out WHY Olsen beats L2 on long-term drift (its saturating exponent? the sigma floor?),
-  and whether the expansion layer helps when fed Olsen-normalised, standardised input.
-- [ ] Drift compensation: ratio-to-reference features (Sterk-group style) and batch-wise
-  recalibration ideas, judged on later batches only.
+- [x] **Why Olsen helps** (`demo_drift_mechanisms.py`): per-channel compression helps long-term drift,
+  divisive pooling helps short-term; generic log-then-L2 ties Olsen exactly (mean 0.641). The
+  fly-specific form adds nothing on this dataset. Expansion layer does not help on real data.
+- [x] **Drift compensation tested**: ratio-to-reference does not help; per-batch recalibration
+  (transductive, unlabelled) is the strongest long-term fix (logreg 0.442 -> 0.664).
+- [ ] Non-transductive drift compensation (e.g. recalibrate from a few labelled reference samples
+  per batch, as instrument calibration gases are used), judged on later batches only.
 - [ ] Wind-tunnel dataset (UCI 251, raw time series, 7.8 GB) once the time-varying pipeline
   (depression) exists.
 
