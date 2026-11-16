@@ -407,6 +407,40 @@ which give more distinct cells; graded weights alone do better than either.
 `demo_uncertainty.py` judged its verdicts; it now uses a paired 12-seed analysis (see "How much the
 answers depend on what we don't know").
 
+## First test on real gas-sensor data (16 Nov 2026)
+
+`demo_drift.py` runs sw-enose's stages on real metal-oxide sensor recordings: the UCI Gas Sensor
+Array Drift dataset (16 sensors, 6 gases, 13,910 measurements in 10 batches over 36 months;
+licence and citations in `sw_enose/sensors.py`; fetch with `scripts/fetch_uci_drift.sh`).
+`sw_enose/sensors.py` adds a front end that turns recorded features into the non-negative channel
+activations the stages expect (ON/OFF split, scaled on training data only), so the same
+processing now runs on simulated receptors or real sensors. Batches are held out by time; the
+design was fixed before running.
+
+| mean accuracy on held-out batches | A: train batch 1 only | B: train previous batch |
+|---|---|---|
+| logistic regression (plain) | **0.442** | **0.753** |
+| 5-nearest neighbours (plain) | 0.365 | 0.668 |
+| nearest centroid (plain) | 0.330 | 0.574 |
+| front end + nearest centroid | 0.323 | 0.560 |
+| front end + Olsen normalisation + nearest centroid | 0.426 | 0.684 |
+| front end + expansion + memory (no Olsen) | 0.409 | 0.690 |
+| full sw-enose pipeline | 0.363 | 0.655 |
+
+- **A plain classifier wins.** The full biomimetic pipeline does not beat logistic regression on
+  real sensor data, as the bio-inspired e-nose literature led us to expect.
+- **Olsen normalisation is the stage that clearly helps:** with the same classifier before and
+  after, +0.10 to +0.12 on both protocols. It makes patterns more robust to the gain and
+  concentration changes that drift produces.
+- **The expansion layer adds nothing on top of it here;** the full pipeline is slightly worse
+  than Olsen plus a simple classifier.
+- **Drift overwhelms every method:** trained on batch 1, all fall to 0.06–0.25 on batch 8.
+- Caveats: fixed, untuned baselines; no SVM (scikit-learn not installed); one random seed for the
+  expansion; published results on this dataset use other protocols and are not compared.
+- The UCI pages disagree about which class code is which gas; the code→gas order kept here is
+  the one the data's concentration maxima support best. Accuracy is unaffected; per-gas
+  statements are not made.
+
 ## Not done yet
 
 Published human detection thresholds in air for C3-C10, which is the next piece and the one the

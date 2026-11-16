@@ -223,3 +223,17 @@ comparison.
 - [x] `reports/` and `research_notes/` committed in 8312e92.
 - [ ] Read the 2025 Dennler et al. neuromorphic machine-olfaction review in full, the largest gap in
   the novelty search.
+
+## Real sensor data (16 Nov 2026)
+
+- [x] **First real-data benchmark** (`demo_drift.py`, UCI drift dataset, held out by time). Plain
+  logistic regression wins (0.442 / 0.753); Olsen normalisation is the one stage that helps
+  (+0.10–0.12 over the same classifier without it); expansion adds nothing on top.
+- [ ] Add an SVM baseline (needs scikit-learn in a project venv) and seed-averaged expansion runs.
+- [ ] Test Olsen normalisation as a pre-processing step for the plain classifiers (does it help
+  logistic regression too?).
+- [ ] Drift compensation: ratio-to-reference features (Sterk-group style) and batch-wise
+  recalibration ideas, judged on later batches only.
+- [ ] Wind-tunnel dataset (UCI 251, raw time series, 7.8 GB) once the time-varying pipeline
+  (depression) exists.
+
