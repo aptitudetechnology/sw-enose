@@ -237,8 +237,12 @@ comparison.
   fly-specific form adds nothing on this dataset. Expansion layer does not help on real data.
 - [x] **Drift compensation tested**: ratio-to-reference does not help; per-batch recalibration
   (transductive, unlabelled) is the strongest long-term fix (logreg 0.442 -> 0.664).
-- [ ] Non-transductive drift compensation (e.g. recalibrate from a few labelled reference samples
-  per batch, as instrument calibration gases are used), judged on later batches only.
+- [x] **Non-transductive recalibration** (`demo_drift_calibration.py`): a few labelled reference
+  samples per gas from the current batch lift long-term accuracy 0.44 -> 0.82-0.97; the old training
+  data adds nothing (recent samples alone do as well or better). Olsen makes few-sample learning
+  more efficient (k=3: 5-NN 0.53 -> 0.73). Single-gas offset calibration is unreliable.
+- [ ] Few-sample efficiency: does generic log-then-L2 match Olsen here too? And how few samples
+  are enough per gas, per classifier (k = 1, 2)?
 - [ ] Wind-tunnel dataset (UCI 251, raw time series, 7.8 GB) once the time-varying pipeline
   (depression) exists.
 

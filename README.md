@@ -459,6 +459,16 @@ design was fixed before running.
   Recalibrating each batch on its own statistics, without labels, is the strongest long-term fix
   (logistic regression 0.442 → 0.664; 5-NN with Olsen 0.650), but it is transductive: it needs a
   batch of unlabelled measurements at once, and batches hold different gas mixes.
+- **Recalibrating on a few labelled reference samples is what works** (`demo_drift_calibration.py`,
+  design fixed in advance, reference samples excluded from scoring). Adding k labelled samples per
+  gas from the current batch lifts long-term-drift accuracy from 0.442 to 0.820 (k = 3) and 0.918
+  (k = 10). A control shows the old training data contributes nothing: the k recent samples ALONE
+  match or beat it (0.839 at k = 3, 0.950 at k = 10). After months of drift the old data is
+  stale; the practical lesson is to recalibrate on fresh labelled samples. Olsen pre-processing
+  makes that few-sample learning more efficient (k = 3: logistic regression 0.84 → 0.91, 5-NN
+  0.53 → 0.73; k = 10: up to 0.97). Not yet tested: whether generic log-then-L2, which tied Olsen
+  elsewhere, gives the same gain. Calibrating with a single reference gas is unreliable: it helps
+  slightly on long-term drift and hurts between neighbouring batches.
 - **Drift overwhelms every method:** trained on batch 1, all fall to 0.06–0.25 on batch 8.
 - Caveats: fixed, untuned baselines; no SVM (scikit-learn not installed); one random seed for the
   expansion; published results on this dataset use other protocols and are not compared.
