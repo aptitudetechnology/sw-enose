@@ -9,3 +9,4 @@ data/lazar2022/repo/
 data/lazar2022/dm4_sweep.npz
 data/uci_drift/
 .venv/
+data/uci_windtunnel/
